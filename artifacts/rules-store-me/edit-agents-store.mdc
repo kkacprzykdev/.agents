@@ -1,0 +1,55 @@
+---
+description: Edit skills, rules, commands, and subagents only under ~/.agents. First run ag status to see whether this store owns its Core or takes it read-only from an Upstream store. Run ag owner to find the branch and checkout. After every change, commit, ag push, and ag update without asking. Keep the store runtime-neutral. Configured agent homes are symlink targets from ag sync.
+alwaysApply: true
+---
+
+# Edit the agents store, not agent homes
+
+## First: who owns Core in this store
+
+Run `ag status` and read its `Core:` line before any other step.
+
+- **`owned by this store`:** this store has no Upstream store. Core is edited on `main`, as the rest of this rule describes.
+- **`read-only, from <url>`:** this store takes Core from an Upstream store. Never edit `main` or any Core path, on any branch. Core is everything outside `profiles/`, `skills/`, and `.skill-lock.json`. Put a store-level rule, skill, command, or subagent in a profile instead. `ag owner` and `ag edit main` refuse Core paths and name where the change goes. Follow their message.
+
+Canonical store: `~/.agents/` (see `~/.agents/README.md`). `ag sync` symlinks the artifacts of the Active profile's Lineage into every runtime that profile uses. The runtime mappings live in `~/.agents/sync/runtimes.yaml`. Cursor and Claude are current mappings, not the supported-agent boundary. Future mappings may include Codex, T3 Code, or other compatible runtimes.
+
+Keep every repository-wide update runtime-neutral. Put runtime-specific behavior in a clearly scoped artifact or mapping only when that behavior genuinely depends on that runtime.
+
+Paths below are relative to the store root.
+
+| Kind | Write here |
+|---|---|
+| Artifacts of one profile, and of every profile created from it | `profiles/<profile>/artifacts/<kind>-profile-me/` |
+| Store artifacts (editing or documenting this store, or running `ag`) | `artifacts/<kind>-store-me/` |
+| Third-party skills | `skills/<name>/`, installed with `ag skills add` |
+
+An artifact that a whole Lineage needs goes in the highest profile that needs it. A profile's own conventions, such as references, are in that profile's `README.md` and rules.
+
+## Which branch and checkout
+
+Before you edit a store file, run `ag owner <path>`. It prints the owning branch and the checkout.
+
+Every `ag` command reads `~/.agents` and `~/.agents-edit`, whatever directory it runs from, so its output means the same everywhere. Only `ag owner` uses the current directory, to resolve a relative path.
+
+- **The Active profile's branch:** edit in `~/.agents`.
+- **Any other branch, including `main`:** run `ag edit <branch>`, then edit in `~/.agents-edit`. Skip `ag edit` when `ag owner` says the Edit worktree is already on that branch.
+- **A third-party skill:** edit it on its owning branch to change it for every profile. Edit it on the Active profile's branch only for a change that profile alone needs.
+
+## Git
+
+`ag` is built for agents. When an `ag` command refuses, its message is the guidance. Do what it says. Do not work around it with raw git.
+
+- After every change, commit in the checkout you edited. Then run `ag push`, then `ag update`. Do not ask first. `ag push` pushes both checkouts.
+- Never run `git push`. `ag push` keeps a branch local when its Lineage has a Protected profile.
+- Never bypass a hook with `--no-verify`. If the pre-commit or pre-push hook rejects something, stop and tell the user.
+- If `ag update` stops on a merge conflict, it names the checkout and branch. Resolve the conflict there, commit, and run `ag update` again.
+- If an `ag` command refuses because a checkout has uncommitted changes, it lists them above the error. Commit them in that checkout, then run the command again.
+- Switch profiles only with `ag use <profile>`, never with `git switch` or `git checkout` in `~/.agents`.
+- Create profiles only with `ag new`. Do not improvise the layout.
+
+## Agent homes
+
+**Do not** Write, StrReplace, or create artifacts directly under a configured agent home. Current examples are `~/.claude/` and `~/.cursor/` (`skills`, `commands`, `rules`, `agents`). Those directories are runtime targets. A real file there blocks `ag sync`.
+
+If an open file or tool path shows an artifact under a configured agent home, resolve the symlink and edit its canonical source under `~/.agents/` instead.

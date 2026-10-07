@@ -1,0 +1,8 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Machine-local env files. Templates end in .example, and the Active profile file is committed.
+.env*
+!*.example
+!profiles/.env.active

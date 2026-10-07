@@ -1,0 +1,33 @@
+---
+description: Docs in the ~/.agents store describe only the current state. ADRs are living docs with no status or supersede notes. Overrides the ADR-FORMAT.md Status guidance for this store.
+alwaysApply: true
+---
+
+# Store docs describe the current state
+
+Core docs are edited only in a store that owns its Core. See the first section of `edit-agents-store.mdc`.
+
+This rule covers every doc in the agents store (`~/.agents/`, or the Edit worktree `~/.agents-edit/`). Core docs are `docs/adr/`, other files in `docs/`, `README.md`, `CONTEXT.md`, `CONTEXT-MAP.md`, and `sync/CONTEXT.md`. Profile docs are a profile's `README.md`, `CONTEXT.md`, and `docs/` under `profiles/<name>/`. It does not cover `next.md`, which is an ideas list. It does not apply to other repositories.
+
+## Current state only
+
+- Write what is true now. When something changes, update every doc it affects in the same change.
+- Do not narrate history. No "used to", "no longer", "was renamed", "(update: …)", changelog asides, or terminology notes. Rename a term in place instead.
+- Do not copy facts that change on their own into ADRs, such as which runtimes are verified or which profiles are protected. Link to the doc or config that owns them.
+- Core docs never name a profile's own conventions. A profile's docs may use every Core term.
+
+## ADRs
+
+ADRs in `docs/adr/` and in `profiles/<name>/docs/adr/` are living docs. This overrides the Status and supersede guidance in the `domain-modeling` skill's `ADR-FORMAT.md` for this store.
+
+- No `status:` frontmatter. No "Supersedes ADR X" or "superseded by" lines.
+- Keep a rejected alternative when it is worth remembering. Write it in the present tense, as an option that was considered.
+- **Same decision, refined or renamed:** rewrite the ADR in place and keep its number. The slug may change.
+- **Different decision that replaces an old one:** delete the old ADR and add a new one. Fold any point that is still true into the new ADR or into a related one.
+- When an ADR changes, moves, or is deleted, update or remove every reference to it in other docs.
+- Numbers are stable IDs, counted per ADR folder. An ADR that moves to another folder keeps its number. Gaps are fine. Never renumber and never reuse a number. A new ADR takes the highest number ever used in its folder plus one. Check deleted numbers with `git log --all --diff-filter=D --name-only -- <folder>`.
+
+## Glossary
+
+- Update `CONTEXT.md`, `sync/CONTEXT.md`, or a profile's `CONTEXT.md` in the same change as the decision.
+- An old term goes in the `_Avoid_` list of the term that replaced it. That is current guidance, not history.

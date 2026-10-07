@@ -1,0 +1,14 @@
+#!/bin/sh
+# Runs the ag tests when a commit changes the ag tool or the git hooks. A failing test blocks the commit.
+
+git diff --cached --name-only | grep -qE '^(sync/|\.githooks/)' || exit 0
+
+root=$(git rev-parse --show-toplevel)
+[ -d "$root/sync/test" ] || exit 0
+
+echo "pre-commit: running ag tests" >&2
+if ! node --test "$root"/sync/test/*.test.mjs >&2; then
+  echo "pre-commit: ag tests failed, commit rejected." >&2
+  exit 1
+fi
+exit 0

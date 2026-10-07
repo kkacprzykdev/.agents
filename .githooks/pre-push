@@ -1,0 +1,25 @@
+#!/bin/sh
+# Rejects any push that contains a commit from a Protected profile.
+# Protected profiles come from local git config (ag.noPush), set by `ag protect <profile>`.
+# The check reads commit contents, so it also catches branches made from a protected branch.
+
+remote="$1"
+protected=$(git config --get-all ag.noPush)
+[ -z "$protected" ] && exit 0
+
+zero=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  for commit in $(git rev-list "$local_sha" --not --remotes="$remote"); do
+    for profile in $protected; do
+      if git cat-file -e "$commit:profiles/$profile" 2>/dev/null; then
+        echo "pre-push: refusing to push $local_ref to $remote_ref." >&2
+        echo "pre-push: commit $commit contains profiles/$profile/, and \"$profile\" is a Protected profile." >&2
+        exit 1
+      fi
+    done
+  done
+done
+
+exit 0

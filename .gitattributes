@@ -1,0 +1,2 @@
+# Unix line endings in every checkout, so the git hooks run and ag parses its files on Windows too.
+* text=auto eol=lf
