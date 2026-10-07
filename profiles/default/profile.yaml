@@ -1,0 +1,2 @@
+parent: main
+local-files: [.env, .env.outputs]

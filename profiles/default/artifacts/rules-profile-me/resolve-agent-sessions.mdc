@@ -1,0 +1,14 @@
+---
+description: Session and transcript discovery across coding agents. Read the resolve-agent-sessions skill when linking chats, resolving transcript paths, or setting Sessions path / Transcripts path headers. Never build a transcript path by hand.
+alwaysApply: true
+---
+
+# Resolve agent sessions
+
+When you need to discover where agent transcripts live, resolve a session id to a file path, or build a transcript link:
+
+Read **`~/.agents/profiles/default/artifacts/skills-profile-me/resolve-agent-sessions/SKILL.md`**.
+
+For **clickable link format** (`file://` URIs, **HOME_FILE_URI**): `~/.agents/profiles/default/artifacts/rules-profile-me/local-file-uri-links.mdc`.
+
+For **generated artifact layout** (`## Related chats`, Past Chat References, checklist inline links): `~/.agents/profiles/default/artifacts/skills-profile-me/vault-session-references/SKILL.md` — read when writing those sections, not for bare path discovery.

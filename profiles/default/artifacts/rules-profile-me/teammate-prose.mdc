@@ -1,0 +1,43 @@
+---
+description: Teammate prose for PRs, summary Feature Overview, and code comments (not agent handoff dumps).
+alwaysApply: true
+---
+
+# Teammate prose
+
+## Two voices (do not mix them)
+
+| Audience | Where | Voice |
+|----------|--------|--------|
+| Reviewers, PMs, future you pasting a PR | PR description, chat summary **`## 1. Feature Overview` only** | **Teammate** — see below |
+| Next agent continuing the work | Summary § Architecture, Constraints, Completed, Critical Files, Past Chat References | **Dense technical** — shorthand OK |
+
+## Teammate voice
+
+Write like a colleague in a PR, not compressed agent handoff prose.
+
+- Use **full sentences**. One main idea per sentence.
+- **No semicolons.** Use a period or a new bullet instead.
+- **No local planning labels** — no WORK_STATE, work-tracking checklists, batch numbers, transcript paths, or `~/.cursor/...` paths in PR-facing text.
+- Prefer **plain product language** before hook names, flag keys, or file paths. Add identifiers only when a reviewer needs them (e.g. a flag name in Notes for QA).
+- **Bullet lists:** each bullet is one or two sentences describing a **user-visible outcome**, not a stack of implementation steps joined by commas.
+- Do not chain many clauses in one sentence. If you need more than one "and" or an aside, split into another sentence or bullet.
+- Spell out or link tickets. Do not drop unexplained acronyms.
+
+Resolve the Active profile (`profile-references.mdc`). If `references/shared.md` has **PR writing samples**, use the sentence-craft Bad/Good illustrations from that section.
+
+If that section is missing:
+
+**Bad:** `Fixed the filter dropdown for accounts: one account; spinner forever; listing uses loadAccounts().`
+
+**Good:** `Fixed the filter dropdown for accounts. It now lists every enabled account and those rows stay clickable.`
+
+**Self-check:** Read the text aloud. If it sounds like one breath or a symbol changelog, rewrite into shorter sentences.
+
+## Code comments
+
+Same clarity rules when you add or change comments in source:
+
+- Explain **non-obvious** intent, invariants, or pitfalls — not what the next line obviously does.
+- Short sentences. No semicolons. No meta ("per user request", "as discussed in chat").
+- Do not paste PR description or ticket prose into code.

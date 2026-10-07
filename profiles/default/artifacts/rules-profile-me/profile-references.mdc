@@ -1,0 +1,54 @@
+---
+description: Resolve the Active profile before output paths or references. Read the Profile setup for machine-local values. References fall back along the Lineage. When editing an artifact, put environment-specific values in profile references.
+alwaysApply: true
+---
+
+# Profile references and Active profile
+
+## Resolve the Active profile
+
+Do this before reading output paths or references.
+
+1. Read `~/.agents/profiles/.env.active` (resolve `~`). The profile name is the `ACTIVE_PROFILE` value. Trim whitespace. The file is committed, and each profile branch holds its own value.
+2. If the file or `ACTIVE_PROFILE` is missing or empty: stop. Tell the user the `~/.agents` checkout has no Active profile.
+3. Profile root: `~/.agents/profiles/<name>/`. If that directory is missing: stop.
+4. Read the Output map, `{profile}/.env.outputs`. Required. One `kind=directory` per line. Values are unquoted. `fallback` is mandatory. Expand `~` at runtime. If the file or `fallback` is missing: stop. Ask the user to run `ag setup`.
+5. Kind directory: if the kind key exists, use that path. Otherwise use `fallback`.
+6. References: resolve each file on its own. Walk the Lineage from the Active profile up to `default`. Each profile's `profile.yaml` names its `parent`. Use the first file that exists:
+   1. `{profile}/references/<file>`
+   2. the same path in the parent's folder, then the grandparent's, up to `~/.agents/profiles/default/references/<file>`
+   3. If none exists, use the generic behavior in the artifact.
+
+   `<file>` is `shared.md` or `<artifact>.md`. `<artifact>` is the skill folder name, or the command/rule/subagent filename without extension. A profile's file replaces every ancestor's file of the same name as a whole. They are never merged.
+
+   Before deciding that a reference file or a section is missing, read the whole file. A search that finds nothing does not prove absence. Some agent search tools cover only the open workspace and report no matches, with no error, for files outside it.
+
+Read profiles from `~/.agents/profiles/`. Never read them from the Edit worktree `~/.agents-edit`. Do not load profiles as commands or skills in any agent runtime.
+
+Kinds in use: `chat-context-summary`, `work-state`, `analysis-package`, plus `fallback`. `.env.outputs` is a local file in every profile. Its tracked template is `profiles/default/.env.outputs.example`.
+
+## Read the Profile setup
+
+Do this when an artifact needs `HOME_PATH`, `HOME_FILE_URI`, `CHAT_PICKER_HOME`, or `TREESTATUS_REPO`.
+
+1. Resolve the Active profile (steps 1–3 above).
+2. Read `{profile}/.env`. One `KEY=value` per line. Expand `~` in values.
+3. If the file or a needed key is missing: stop. Ask the user to run `ag setup`.
+
+`{profile}/.env` is a local file in every profile. Its tracked template is `profiles/default/.env.example`. Read `.env`, not `.env.example`.
+
+## When editing an artifact
+
+Put environment-specific values (URLs, templates, vault paths, product hosts) in references, not in the artifact. Profile setup values (home directory, chatpicker clone, TreeStatus source clone) are not references. They go in the profile `.env`.
+
+- **shared** reference: values many artifacts use.
+- **named** reference: values one artifact uses.
+- Ask before creating or changing a reference.
+
+### Which profile to write
+
+Write references only for the profile that owns the change.
+
+- **The Active profile's references:** write `profiles/<active>/references/` in `~/.agents`. Add a file there only when the profile needs something different from the file it would inherit.
+- **An ancestor's references:** run `ag edit <ancestor>` and write `profiles/<ancestor>/references/` in `~/.agents-edit`, as described in `edit-agents-store.mdc`.
+- Keep `default` references generic. No workplace values.

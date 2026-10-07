@@ -1,0 +1,38 @@
+---
+description: Clickable markdown links use file:// URIs. Read HOME_FILE_URI and HOME_PATH from the Active profile .env. Never hardcode a home path in a skill, command, or rule.
+alwaysApply: true
+---
+
+# Local file links (home URI)
+
+## Resolve values (every time)
+
+Before writing a clickable local link:
+
+1. Read **HOME_FILE_URI** and **HOME_PATH** from the Profile setup (`profile-references.mdc`, Read the Profile setup).
+2. If `.env` or either key is missing, stop. Ask the user to run `ag setup`.
+3. Vault directories come from the Active profile Output map, not from a hardcoded folder name.
+
+Do not store HOME_FILE_URI or HOME_PATH in this rule. They live in each profile `.env` (gitignored). If this machine's home directory changes, update every profile `.env` that exists.
+
+## Markdown link targets
+
+In `[text](target)`, use **absolute `file://` URIs**. Do **not** use relative paths or `~` in link targets (editors do not expand `~` in links).
+
+Build the target:
+
+`target = HOME_FILE_URI + absolute_path` after stripping `HOME_PATH` from the front of the absolute path.
+
+With `HOME_PATH=/Users/me` and `HOME_FILE_URI=file:///Users/me`, the file `/Users/me/vault/notes.md` becomes `file:///Users/me/vault/notes.md`. The home directory appears exactly once. `file:///Users/me/Users/me/…` means `HOME_PATH` was not stripped.
+
+In templates, `{HOME_FILE_URI}` means that prefix after substitution. Never leave a literal username in a skill, command, or rule.
+
+Generated-artifact example: resolve the kind directory from the Output map, then prefix with `{HOME_FILE_URI}` the same way.
+
+Prose and inline code may still use tilde paths when describing directories. Only **clickable** `[label](…)` targets use `{HOME_FILE_URI}`.
+
+## Session transcripts
+
+Do not build transcript targets from a path template. Use the `uri` the resolver prints (`~/.agents/profiles/default/artifacts/skills-profile-me/resolve-agent-sessions/SKILL.md`). It already follows this rule.
+
+Keep `` `<session-id>` `` in backticks on the same line after the link. Never use a bare session id as the link target.
