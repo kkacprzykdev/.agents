@@ -1,14 +1,56 @@
 # ~/.agents
 
-A canonical store for coding agent skills, rules, commands, and subagents, organized into profiles. Content lives here. Configured agent runtimes receive compatible artifacts through symlinks created by `ag sync`.
+Link your global skills, rules, commands, subagents, and instruction files into every coding agent you use. One store holds them. `ag sync` puts a symlink to each one in each coding agent's global folder.
 
-**Built for agents.** The store is run through one command-line tool, `ag`, and `ag` is built mainly for agents. Each store operation is one command that checks the state first. When it refuses, its message names the fix, so an agent follows it instead of improvising git steps. Humans run the same commands: `ag sync` to relink everything, `ag update` to merge changes down, `ag skills add` to install a skill, and `ag push` to push.
+Many people use several coding agents, because they have different subscriptions. You want one simple workflow in all of them, on every computer. This store gives you that. It works only on your global setup. It never changes a project's own `.cursor/`, `.claude/`, `AGENTS.md`, or `CLAUDE.md`.
 
-**Runtime-neutral invariant:** Cursor, Claude, and Codex are the runtimes configured today. They are examples, not a supported-agent boundary. Future mappings may target T3 Code, or any other agent with compatible artifact directories. Keep recipes and store conventions independent of one runtime unless an artifact genuinely uses a runtime-specific feature.
+## Why use it
 
-**Current coverage:** Cursor receives skills, commands, rules, and subagents. Claude receives skills, commands, rules, `CLAUDE.md`, and `AGENTS.md`. Codex receives store and profile skills, `AGENTS.md`, and `CLAUDE.md`. Runtime-neutral design does not mean equal runtime support. See [`docs/runtime-support.md`](./docs/runtime-support.md) for the current gaps and future investigation.
+### Your setup, everywhere
 
-**Edit only this tree.** Do not create or modify artifacts directly in any configured agent home (currently `~/.claude/`, `~/.codex/`, and `~/.cursor/`). Those paths are runtime targets. A real file there can block `ag sync`.
+- Change a skill once, and every coding agent uses it right away. The links are symlinks.
+- Get the same setup on every computer. See [Set it up on another computer](#already-have-a-store).
+- Use any coding agent. A new one is one entry in `sync/runtimes.yaml`.
+- Run it on macOS, Linux, or Windows. You need only git and Node.js. The GitHub CLI is highly recommended.
+
+### Yours to keep
+
+- Keep your global setup in your own GitHub repository, private or public. You never lose it, and git keeps its history.
+- Get updates from this repository without merge conflicts. Core is read-only in your store.
+
+### Profiles
+
+- Switch setups with one command: `ag use <profile>`. Try a skill pack such as [mattpocock/skills](https://github.com/mattpocock/skills) or [pstack](https://github.com/cursor/plugins/tree/main/pstack/skills) without mixing it with your own skills.
+- Start from nothing. A clean profile links nothing, for benchmarks or simple tests: `ag new clean --clean`.
+- Build one profile on another. For example, `work` gets everything from `personal` and adds work skills.
+- Keep a profile on your computer. A protected profile never leaves it. Use one for work or private content in a public repository.
+
+### Safe and agent-friendly
+
+- `ag sync` checks everything first. It never deletes your real files. When it stops, it changes no links.
+- Your coding agent can manage the store for you.
+
+## Current coverage
+
+- Cursor gets:
+  - Skills in `~/.cursor/skills/`
+  - Commands in `~/.cursor/commands/`
+  - Rules in `~/.cursor/rules/`
+  - Subagents in `~/.cursor/agents/`
+- Claude gets:
+  - Skills in `~/.claude/skills/`
+  - Commands in `~/.claude/commands/`
+  - Rules in `~/.claude/rules/`
+  - `AGENTS.md` and `CLAUDE.md` in `~/.claude/`
+- Codex gets:
+  - Skills in `~/.codex/skills/`
+  - `AGENTS.md` and `CLAUDE.md` in `~/.codex/`
+
+Each coding agent reads the files in a slightly different way. Refer to [`docs/runtime-support.md`](./docs/runtime-support.md).
+
+## Edit only this tree
+
+Do not make or change files in the folders of a coding agent, for example `~/.cursor/` or `~/.claude/`. The `ag sync` command puts links in these folders. A real file in these folders can stop the command.
 
 ## Get started
 
