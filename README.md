@@ -54,9 +54,9 @@ Do not make or change files in the folders of a coding agent, for example `~/.cu
 
 ## Get started
 
-Your store is your own repository. This repository becomes its Upstream store: you take Core updates from it and never push to it.
+Your store is your own repository. This repository becomes its Upstream store, and `ag init` sets that up. You never push to this repository. `ag push` sends commits to your repository only.
 
-Core is read-only in your store, so a Core update never conflicts with your own changes. Your setup goes in a profile. `ag` refuses edits to Core and names where the change goes instead.
+You write your files in a profile. Core stays read-only, so an update from this repository never conflicts with them. When a change belongs somewhere else, `ag` refuses it and says where it goes.
 
 ### Before you start
 
