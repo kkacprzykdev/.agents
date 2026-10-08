@@ -223,7 +223,7 @@ Every store path has one owning branch. `ag owner <path>` prints it, with the ch
 - A third-party skill belongs to the highest branch in the Lineage that contains it. A new one, the `skills/` folder itself, and `.skill-lock.json` belong to the Active profile.
 - Everything else belongs to `main`.
 
-In a store with an Upstream store, Core is read-only, and `ag status` prints `Core: read-only, from <url>`. `ag owner` refuses every path that belongs to `main`, and `ag edit main` refuses too. Their message says where the change goes instead:
+In a store with an Upstream store, Core is read-only, and `ag status` prints `Core: read-only, from <url>`. `ag owner` refuses every path that belongs to `main`, and `ag edit main` refuses too. `ag push` and `ag update` refuse while `main` has commits that `upstream/main` does not, and print how to reset it. The message of `ag owner` and `ag edit` says where the change goes instead:
 
 - A store-level skill, rule, command, or subagent goes in a profile, under `profiles/<profile>/artifacts/<kind>-profile-me/`.
 - A change to `ag`, the docs, or the runtime mappings goes in an issue on the Upstream store.

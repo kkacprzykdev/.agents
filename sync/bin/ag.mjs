@@ -1043,45 +1043,54 @@ function parkEditWorktree() {
   }
 }
 
-// The Upstream store's Core lands on main first. Root profiles then take it from origin like any main commit.
-// Core is read-only here, so main only fast-forwards. A commit of its own would conflict with later Core changes.
-function fastForwardUpstreamCore() {
-  if (!hasRemote(UPSTREAM)) {
-    return;
-  }
-  const upstreamRef = `refs/remotes/${UPSTREAM}/${CORE_BRANCH}`;
-  git(["fetch", UPSTREAM, `+refs/heads/${CORE_BRANCH}:${upstreamRef}`]);
-  ensureLocalBranch(CORE_BRANCH);
+const UPSTREAM_CORE = `refs/remotes/${UPSTREAM}/${CORE_BRANCH}`;
+
+// Core is read-only in a store with an Upstream store. A commit of its own on main, local or on origin,
+// would conflict with later Core changes, so ag update and ag push refuse it.
+function ownCoreCommits() {
+  git(["fetch", UPSTREAM, `+refs/heads/${CORE_BRANCH}:${UPSTREAM_CORE}`]);
   const heads = [CORE_BRANCH];
   if (remoteHasBranch(CORE_BRANCH)) {
     git(["fetch", "origin", `${CORE_BRANCH}:refs/remotes/origin/${CORE_BRANCH}`]);
     heads.push(`origin/${CORE_BRANCH}`);
   }
+  return git(["log", "--format=%h %s", ...heads, "--not", UPSTREAM_CORE]).out;
+}
 
-  const own = git(["log", "--format=%h %s", ...heads, "--not", upstreamRef]).out;
+function refuseOwnCoreCommits(own, cwd, command) {
+  const checkout = display(cwd);
+  console.log(`${CORE_BRANCH} has commits that the Upstream store does not have:`);
+  for (const line of own.split("\n")) {
+    console.log(`  ${line}`);
+  }
+  console.log(`Core is read-only in a store with an Upstream store, so ${CORE_BRANCH} only takes commits from it.`);
+  console.log(`Copy any change you want to keep into a profile. Then reset ${CORE_BRANCH} to the Upstream store:`);
+  console.log(`  git -C ${checkout} reset --hard ${UPSTREAM}/${CORE_BRANCH}`);
+  console.log(`  git -C ${checkout} push --force-with-lease origin ${CORE_BRANCH}`);
+  console.log("These commands drop the commits above. An agent must ask the user before running them.");
+  throw new Error(`${CORE_BRANCH} has diverged from ${UPSTREAM}/${CORE_BRANCH} (see above). Reset it, then run ag ${command} again.`);
+}
+
+// The Upstream store's Core lands on main first. Root profiles then take it from origin like any main commit.
+function fastForwardUpstreamCore() {
+  if (!hasRemote(UPSTREAM)) {
+    return;
+  }
+  ensureLocalBranch(CORE_BRANCH);
+  const own = ownCoreCommits();
   if (own) {
     ensureEditWorktree();
     switchEditWorktree(CORE_BRANCH);
-    const edit = display(EDIT_WORKTREE);
-    console.log(`${CORE_BRANCH} has commits that the Upstream store does not have:`);
-    for (const line of own.split("\n")) {
-      console.log(`  ${line}`);
-    }
-    console.log(`Core is read-only in a store with an Upstream store, so ag update only fast-forwards ${CORE_BRANCH}.`);
-    console.log(`Copy any change you want to keep into a profile. Then reset ${CORE_BRANCH} to the Upstream store:`);
-    console.log(`  git -C ${edit} reset --hard ${UPSTREAM}/${CORE_BRANCH}`);
-    console.log(`  git -C ${edit} push --force-with-lease origin ${CORE_BRANCH}`);
-    console.log("These commands drop the commits above. An agent must ask the user before running them.");
-    throw new Error(`${CORE_BRANCH} has diverged from ${UPSTREAM}/${CORE_BRANCH} (see above). Reset it, then run ag update again.`);
+    refuseOwnCoreCommits(own, EDIT_WORKTREE, "update");
   }
 
-  if (git(["rev-list", "--count", `${CORE_BRANCH}..${upstreamRef}`]).out === "0") {
+  if (git(["rev-list", "--count", `${CORE_BRANCH}..${UPSTREAM_CORE}`]).out === "0") {
     return;
   }
   ensureEditWorktree();
   switchEditWorktree(CORE_BRANCH);
   log("info", `Fast-forwarding ${CORE_BRANCH} to ${UPSTREAM}/${CORE_BRANCH} in ${display(EDIT_WORKTREE)}`);
-  mergeStep(["merge", "--ff-only", upstreamRef], EDIT_WORKTREE, CORE_BRANCH);
+  mergeStep(["merge", "--ff-only", UPSTREAM_CORE], EDIT_WORKTREE, CORE_BRANCH);
 }
 
 // Profiles merge main from origin, so a main commit that was never pushed would not reach them.
@@ -1288,6 +1297,13 @@ function runNew(args) {
 // Pushes both checkouts, so it does not matter which directory ag push runs from.
 function runPush() {
   assertOrigin();
+  const coreCheckout = checkouts().find((cwd) => currentBranch(cwd) === CORE_BRANCH);
+  if (coreCheckout && hasRemote(UPSTREAM)) {
+    const own = ownCoreCommits();
+    if (own) {
+      refuseOwnCoreCommits(own, coreCheckout, "push");
+    }
+  }
   for (const cwd of checkouts()) {
     const branch = currentBranch(cwd);
     if (!branch) {
