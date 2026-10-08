@@ -39,8 +39,12 @@ The git branch that carries one profile, named after it. It also carries the fol
 _Avoid_: Pack branch, environment branch
 
 **Profile skeleton**:
-What `ag new` always writes for a new profile: `profile.yaml` and the four `artifacts/<kind>-profile-me/` folders. Everything else in a profile folder is added later, only to extend the Lineage.
+What `ag new` always writes for a new profile: `profile.yaml` and the five `artifacts/<kind>-profile-me/` folders. Everything else in a profile folder is added later, only to extend the Lineage.
 _Avoid_: Profile template, copying the parent's folder
+
+**Clean profile**:
+A Root profile with `clean: true` in its `profile.yaml`. It links no store artifacts. Created from the Core branch, it links nothing into any coding agent. It is for benchmarks and simple tests. `ag new <name> --clean` creates one.
+_Avoid_: Empty profile, bare profile, blank profile
 
 **Active profile**:
 The one profile in force in a checkout. Each Profile branch commits its own Active profile value, so checking out a branch switches the Active profile. The Core branch has none.
@@ -61,8 +65,12 @@ _Avoid_: setup-profile, a generated placeholder skill
 ### Artifacts
 
 **Profile artifact**:
-A skill, command, rule, or subagent that lives inside one profile. Every profile in that profile's Lineage below it links it too.
+A skill, command, rule, subagent, or Global instructions file that lives inside one profile. Every profile in that profile's Lineage below it links it too.
 _Avoid_: Local-only artifact, private skill, personal artifact directories at the store root
+
+**Global instructions file**:
+A profile's `AGENTS.md` or `CLAUDE.md`, in its `artifacts/instructions-profile-me/` folder. `ag sync` links it into the Agent home of Claude and Codex. Only one profile in a Lineage can have each file.
+_Avoid_: Memory file, global rule, context file
 
 **Store artifact**:
 A hand-authored artifact about the store itself: editing it, documenting it, or running `ag`. It lives outside every profile, is committed on the Core branch, and every profile links it.
