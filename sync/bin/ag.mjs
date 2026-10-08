@@ -33,6 +33,9 @@ const UPSTREAM = "upstream";
 const HOOKS_PATH = ".githooks";
 const KINDS = ["skills", "commands", "rules", "subagents", "instructions"];
 const INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md"];
+// A Root profile starts with these. Claude resolves a relative import next to the real CLAUDE.md,
+// which may sit in another profile than the AGENTS.md in force. ag sync links that one into ~/.claude.
+const DEFAULT_INSTRUCTIONS = { "AGENTS.md": "", "CLAUDE.md": "@~/.claude/AGENTS.md\n" };
 const PROFILE_NAME = /^[A-Za-z0-9._-]+$/;
 const EXCLUDE_HEADER = "# ag: local files listed in profile.yaml";
 
@@ -518,15 +521,36 @@ function artifactFolder(profile, kind) {
   return `profiles/${profile}/artifacts/${kind}-profile-me/`;
 }
 
+// The AGENTS.md that ag sync links, where the text of a real instruction file belongs.
+function agentsFileInForce(mappings, profile) {
+  for (const { link, artifacts } of mappings) {
+    const agents = link.kind === "instructions" && artifacts.get("AGENTS.md");
+    if (agents) {
+      return `${agents.source}/AGENTS.md`;
+    }
+  }
+  return `${artifactFolder(profile, "instructions")}AGENTS.md`;
+}
+
 // Runs over every runtime before any link changes, so one Blocker anywhere leaves every runtime as it was.
 function checkTargets(mappings, profile) {
   const { blockers, unmanaged } = findRealEntries(mappings);
   if (blockers.length) {
+    // An instructions folder accepts only the two instruction file names, so a renamed copy cannot move in.
+    const hasInstructions = blockers.some(({ kind }) => kind === "instructions");
+    const hasOthers = blockers.some(({ kind }) => kind !== "instructions");
+    const advice = [
+      hasOthers &&
+        `Delete each ${hasInstructions ? "other file or folder" : "one"}, or rename it and move it into ${artifactFolder(profile, "<kind>")} to keep both.`,
+      hasInstructions &&
+        `Move the text you want to keep from each instruction file into ${agentsFileInForce(mappings, profile)}, then delete the file.`,
+      "Then run ag sync again.",
+    ].filter(Boolean);
     throw new Error(
       [
         "Blocker: these real files or folders have the names of store artifacts, so ag sync changed nothing:",
         ...blockers.map(({ path, kind }) => `  ${display(path)} (${kind})`),
-        `Delete each one, or rename it and move it into ${artifactFolder(profile, "<kind>")} to keep both. Then run ag sync again.`,
+        advice.join(" "),
       ].join("\n"),
     );
   }
@@ -1259,6 +1283,44 @@ function parseNewArgs(args) {
   return options;
 }
 
+// The instruction files a new profile's Lineage links, and the AGENTS.md among them.
+function newLineageInstructions(name, parent, clean) {
+  const ownAgents = `${artifactFolder(name, "instructions")}AGENTS.md`;
+  if (clean) {
+    return { files: [], agentsPath: ownAgents };
+  }
+  if (parent === CORE_BRANCH) {
+    return { files: Object.keys(DEFAULT_INSTRUCTIONS), agentsPath: ownAgents };
+  }
+  const paths = lineage(parent, parent).flatMap((profile) =>
+    INSTRUCTION_FILES.map((file) => `${artifactFolder(profile, "instructions")}${file}`),
+  ).filter((path) => treeHas(parent, path));
+  return {
+    files: INSTRUCTION_FILES.filter((file) => paths.some((path) => path.endsWith(`/${file}`))),
+    agentsPath: paths.find((path) => path.endsWith("/AGENTS.md")) ?? ownAgents,
+  };
+}
+
+// Real files with these names in the agent homes, which ag sync would report as Blockers.
+function realInstructionFiles(files) {
+  const names = new Set(files.map((file) => file.toLowerCase()));
+  const found = [];
+  for (const runtime of Object.values(loadRuntimes())) {
+    const target = runtime.targets.instructions;
+    const dir = target && join(expandPath(runtime.home), target);
+    if (!dir || !existsSync(dir)) {
+      continue;
+    }
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (names.has(entry.toLowerCase()) && !lstatSync(path).isSymbolicLink()) {
+        found.push(path);
+      }
+    }
+  }
+  return found;
+}
+
 function runNew(args) {
   const { name, from, protect, clean } = parseNewArgs(args);
   assertProfileName(name);
@@ -1297,6 +1359,19 @@ function runNew(args) {
     parentConfig = readProfileConfig(parent, parent);
   }
 
+  // ag new commits and pushes before its first sync, so a Blocker found there would leave the profile half set up.
+  const instructions = newLineageInstructions(name, parent, clean);
+  const blocking = realInstructionFiles(instructions.files);
+  if (blocking.length) {
+    throw new Error(
+      [
+        "These real global instruction files would block ag sync, so ag new changed nothing:",
+        ...blocking.map((path) => `  ${display(path)}`),
+        `Rename each one, for example to ${basename(blocking[0])}.old. Then run ag new again, and move their text into ${instructions.agentsPath}.`,
+      ].join("\n"),
+    );
+  }
+
   const profileDir = join(PROFILES_DIR, name);
   if (existsSync(profileDir) && readdirSync(profileDir).length) {
     throw new Error(`${display(profileDir)} already exists on disk. Move it away first.`);
@@ -1313,7 +1388,10 @@ function runNew(args) {
   for (const kind of KINDS) {
     const kindDir = join(profileDir, "artifacts", `${kind}-profile-me`);
     mkdirSync(kindDir, { recursive: true });
-    writeFileSync(join(kindDir, ".gitkeep"), "");
+    const files = kind === "instructions" && !clean && !from ? DEFAULT_INSTRUCTIONS : { ".gitkeep": "" };
+    for (const [file, content] of Object.entries(files)) {
+      writeFileSync(join(kindDir, file), content);
+    }
   }
 
   excludeLocalFiles([{ profile: name, localFiles }]);

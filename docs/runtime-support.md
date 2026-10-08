@@ -41,13 +41,13 @@ Sources: [Claude Code skills and commands](https://code.claude.com/docs/en/skill
 
 ### Subagents
 
-Subagents are linked into Cursor only. Their portability to other coding agents has not been investigated.
+Subagents are linked into Cursor only. Their portability to other coding agents has not been verified.
 
 ### Global instructions files
 
 A profile keeps its `AGENTS.md` and `CLAUDE.md` in `artifacts/instructions-profile-me/`. That folder holds only these two files. `ag sync` links both files into the Agent home of Claude and of Codex. In the Agent home itself, sync manages only these two names. It never removes or lists any other file or symlink there, such as `~/.claude/settings.json`.
 
-Claude reads `~/.claude/CLAUDE.md`, and Codex reads `~/.codex/AGENTS.md`. To keep one text for both, write it in `AGENTS.md` and put `@~/.claude/AGENTS.md` in `CLAUDE.md`. That is why both files go into both homes.
+Claude reads `~/.claude/CLAUDE.md`, and Codex reads `~/.codex/AGENTS.md`. A Root profile starts with an empty `AGENTS.md` and a `CLAUDE.md` that holds `@~/.claude/AGENTS.md`, so both get one text. The import uses the link in `~/.claude/`, because a relative import resolves next to the real `CLAUDE.md`, and the two files can sit in different profiles of a Lineage. That is why both files go into both homes.
 
 Cursor reads neither file globally, so they are not linked into `~/.cursor/`. A global instruction for Cursor is a rule with `alwaysApply: true`.
 
