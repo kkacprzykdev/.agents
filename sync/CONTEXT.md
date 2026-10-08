@@ -13,7 +13,7 @@ A second checkout at `~/.agents-edit`, used to edit and commit any branch other 
 _Avoid_: Base worktree, Ancestor worktree, second clone
 
 **Sync**:
-Remove every symlink in each runtime target directory, then recreate symlinks for every current item in the relevant canonical directories. Non-symlink files are left untouched: Blockers stop sync, and Unmanaged artifacts are listed. Handles adds, renames, and removals since the last sync. A missing source directory is skipped with a warning. If every source for a mapping is missing, that mapping is skipped and the target is left unchanged. An empty source directory (or one with only hidden entries) contributes no artifacts; if at least one source exists, the target is still cleared and recreated. The `instructions` target is the Agent home itself. There sync manages only the names `AGENTS.md` and `CLAUDE.md`, in any letter case, and never removes or lists any other file or symlink.
+Remove every symlink in each runtime target directory, then recreate symlinks for every current item in the relevant canonical directories. Non-symlink files are left untouched: Blockers stop sync, and Unmanaged artifacts are listed. Handles adds, renames, and removals since the last sync. A missing source directory is skipped with a warning. If every source for a mapping is missing, that mapping is skipped and the target is left unchanged. A source directory with no artifacts contributes none; if at least one source exists, the target is still cleared and recreated. The `instructions` target is the Agent home itself. There sync manages only the names `AGENTS.md` and `CLAUDE.md`, in any letter case, and never removes or lists any other file or symlink.
 _Avoid_: Pull, update, deploy
 
 **Update**:
@@ -53,7 +53,7 @@ Marks directories of artifacts authored or maintained by hand (the `<kind>-profi
 _Avoid_: Personal, custom, local
 
 **Artifact**:
-A symlinkable top-level file or directory inside a canonical source directory. Hidden entries (names starting with `.`) are excluded.
+A symlinkable top-level file or directory inside a canonical source directory that git tracks on the current branch. A directory counts when it holds at least one tracked file. Untracked and ignored entries are not artifacts, and neither are hidden entries (names starting with `.`).
 _Avoid_: Item, entry, resource
 
 **Symlink**:

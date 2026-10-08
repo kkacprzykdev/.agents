@@ -53,6 +53,7 @@ test("ag sync stops when a child and a parent both have AGENTS.md", () => {
   world.commitAll(world.store, "Add AGENTS.md");
   ok(world.ag(["new", "child", "--from", "default"]));
   world.write("profiles/child/artifacts/instructions-profile-me/AGENTS.md", "child\n");
+  world.git(world.store, "add", "-A");
 
   assert.match(fails(world.ag(["sync"])), /Collision: "AGENTS\.md"/);
 });
@@ -60,6 +61,7 @@ test("ag sync stops when a child and a parent both have AGENTS.md", () => {
 test("ag sync refuses other files in an instructions folder", () => {
   createDefault(world);
   world.write(`${INSTRUCTIONS}/GEMINI.md`, "gemini\n");
+  world.git(world.store, "add", "-A");
 
   assert.match(
     fails(world.ag(["sync"])),
@@ -104,6 +106,7 @@ test("Codex gets store and profile skills, but not third-party skills, which it 
   createDefault(world);
   world.write("skills/third-party/SKILL.md", "third party\n");
   world.write("profiles/default/artifacts/skills-profile-me/mine/SKILL.md", "mine\n");
+  world.git(world.store, "add", "-A");
 
   ok(world.ag(["sync"]));
 
