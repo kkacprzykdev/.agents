@@ -1,5 +1,22 @@
 #!/bin/sh
-# Runs the ag tests when a commit changes the ag tool or the git hooks. A failing test blocks the commit.
+# In a store with an Upstream store, Core is read-only. Rejects a commit on main, and a commit that stages
+# a Core file on any other branch. A commit that concludes a merge passes, because merging main carries Core.
+# Then runs the ag tests when a commit changes the ag tool or the git hooks. A failing test blocks the commit.
+
+if git remote get-url upstream >/dev/null 2>&1 && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+  if [ "$(git symbolic-ref --short -q HEAD)" = "main" ]; then
+    echo "pre-commit: main is the Core branch. Core is read-only in a store with an Upstream store." >&2
+    echo "pre-commit: put the change in a profile instead. ag owner <path> names where it goes." >&2
+    exit 1
+  fi
+  core=$(git diff --cached --name-only --no-renames | grep -vE '^(profiles/|skills/|\.skill-lock\.json$)')
+  if [ -n "$core" ]; then
+    echo "pre-commit: these staged files are Core, which is read-only in a store with an Upstream store:" >&2
+    echo "$core" | sed 's/^/  /' >&2
+    echo "pre-commit: unstage them and put the change in a profile instead. ag owner <path> names where it goes." >&2
+    exit 1
+  fi
+fi
 
 git diff --cached --name-only | grep -qE '^(sync/|\.githooks/)' || exit 0
 
