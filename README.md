@@ -1,6 +1,6 @@
 # ~/.agents
 
-Link your global skills, rules, commands, subagents, and instruction files into every coding agent you use. One store holds them. `ag sync` puts a symlink to each one in each coding agent's global folder.
+Link your global setup into every coding agent you use. One store holds it. `ag sync` puts a symlink to each file in each coding agent's global folder.
 
 Many people use several coding agents, because they have different subscriptions. You want one simple workflow in all of them, on every computer. This store gives you that. It works only on your global setup. It never changes a project's own `.cursor/`, `.claude/`, `AGENTS.md`, or `CLAUDE.md`.
 
