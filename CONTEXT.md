@@ -77,5 +77,9 @@ A hand-authored artifact about the store itself: editing it, documenting it, or 
 _Avoid_: Repo-local rule, putting store maintenance artifacts in a profile
 
 **Third-party skill**:
-A skill installed by a skills installer. It lives at the store root, outside every profile, because the installer writes to a fixed location. It belongs to the highest branch in the Lineage that contains it. It never exists on the Core branch.
+An artifact installed by a skills installer. It is neither a Profile artifact nor a Store artifact. It lives at the store root, outside every profile, because the installer writes to a fixed location. It belongs to the highest branch in the Lineage that contains it. It never exists on the Core branch.
 _Avoid_: Vendor skill, external artifact
+
+**Global setup**:
+The artifacts the Active profile makes available to coding agents: the profile artifacts of its Lineage, the store artifacts, and the third-party skills. A clean profile includes no store artifacts. References and local files are not part of it.
+_Avoid_: Setup, machine setup
