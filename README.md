@@ -56,7 +56,7 @@ Do not make or change files in the folders of a coding agent, for example `~/.cu
 
 Your store is your own repository. This repository becomes its Upstream store: you take Core updates from it and never push to it.
 
-Core is read-only in your store, so a Core update never conflicts with your own changes. Your skills, rules, commands, and subagents go in a profile. `ag` refuses edits to Core and names where the change goes instead.
+Core is read-only in your store, so a Core update never conflicts with your own changes. Your setup goes in a profile. `ag` refuses edits to Core and names where the change goes instead.
 
 ### Before you start
 
@@ -271,7 +271,7 @@ Every store path has one owning branch. `ag owner <path>` prints the store path 
 
 In a store with an Upstream store, Core is read-only, and `ag status` prints `Core: read-only, from <url>`. `ag owner` refuses every path that belongs to `main`, and `ag edit main` refuses too. `ag push` and `ag update` refuse while `main` has commits that `upstream/main` does not, and print how to reset it. The `pre-commit` hook rejects a raw `git commit` on `main`, and a commit on any other branch that stages a file outside `profiles/`, `skills/`, and `.skill-lock.json`. A commit that concludes a merge passes. The message of `ag owner` and `ag edit` says where the change goes instead:
 
-- A store-level skill, rule, command, or subagent goes in a profile, under `profiles/<profile>/artifacts/<kind>-profile-me/`.
+- A file from your setup goes in a profile, under `profiles/<profile>/artifacts/<kind>-profile-me/`.
 - A change to `ag`, the docs, or the runtime mappings goes in an issue on the Upstream store.
 - To own Core yourself, run `git -C ~/.agents remote remove upstream`. `ag update` then stops taking Core updates.
 
