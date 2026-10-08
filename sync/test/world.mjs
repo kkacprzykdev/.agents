@@ -18,7 +18,13 @@ import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const CORE_FILES = ["sync/bin/ag.mjs", "sync/runtimes.yaml", ".githooks/pre-push", ".gitattributes"];
+const CORE_FILES = [
+  "sync/bin/ag.mjs",
+  "sync/runtimes.yaml",
+  ".githooks/pre-push",
+  ".githooks/pre-commit",
+  ".gitattributes",
+];
 
 // Hooks run with GIT_DIR and GIT_INDEX_FILE set. They must not leak into the throwaway repositories.
 // os.homedir() reads USERPROFILE on Windows, so the fake home replaces every home variable.
@@ -110,6 +116,7 @@ export function createWorld() {
     copyFileSync(join(REPO, rel), join(store, rel));
   }
   chmodSync(join(store, ".githooks/pre-push"), 0o755);
+  chmodSync(join(store, ".githooks/pre-commit"), 0o755);
   for (const kind of ["skills", "commands", "rules", "subagents"]) {
     writeFile(store, `artifacts/${kind}-store-me/.gitkeep`, "");
   }
@@ -128,6 +135,8 @@ export function createWorld() {
     origin,
     bin,
     git,
+    // Like git, but returns the result instead of throwing, for commands that are expected to fail.
+    tryGit: (cwd, ...args) => run("git", args, cwd),
     env,
     ag: (args, { cwd = store } = {}) =>
       run(process.execPath, [join(store, "sync/bin/ag.mjs"), ...args], cwd),

@@ -21,6 +21,12 @@ function pushUpstreamChange(file, content) {
   world.git(maintainer, "push", "-q", "origin", "main");
 }
 
+// A commit the pre-commit hook would reject, as made with --no-verify or before the hook existed.
+function commitPastHook(root, message) {
+  world.git(root, "add", "-A");
+  world.git(root, "commit", "-q", "--no-verify", "-m", message);
+}
+
 test("ag init with a URL takes Core from upstream and pushes to the user's own origin", () => {
   const mine = world.bareRepo("mine");
 
@@ -106,7 +112,7 @@ test("ag update refuses a main with commits of its own, then continues after the
   ok(world.ag(["init", mine]));
   ok(world.ag(["new", "personal"]));
   world.write("core.txt", "mine\n", world.edit);
-  world.commitAll(world.edit, "Change core.txt on my main");
+  commitPastHook(world.edit, "Change core.txt on my main");
   world.git(world.edit, "push", "-q", "origin", "main");
   pushUpstreamChange("core.txt", "upstream\n");
 
@@ -127,20 +133,75 @@ test("ag update refuses a main with commits of its own, then continues after the
   assert.equal(show(mine, "main:core.txt"), "upstream");
 });
 
-test("ag push refuses a main with commits of its own and pushes nothing", () => {
+test("ag push refuses a main with commits of its own, pushes nothing, and works after the printed reset", () => {
   const mine = world.bareRepo("mine");
   ok(world.ag(["init", mine]));
   ok(world.ag(["new", "personal"]));
   const before = world.git(world.base, "--git-dir", mine, "rev-parse", "main");
   world.write("core.txt", "mine\n", world.edit);
-  world.commitAll(world.edit, "Change core.txt on my main");
+  commitPastHook(world.edit, "Change core.txt on my main");
 
   const output = fails(world.ag(["push"]));
 
   assert.match(output, /\w+ Change core\.txt on my main/);
   assert.match(output, /git -C ~\/\.agents-edit reset --hard upstream\/main/);
+  assert.match(output, /git -C ~\/\.agents-edit push --force-with-lease origin main/);
   assert.match(output, /then run ag push again/);
   assert.equal(world.git(world.base, "--git-dir", mine, "rev-parse", "main"), before);
+
+  world.git(world.edit, "reset", "-q", "--hard", "upstream/main");
+  world.git(world.edit, "push", "-q", "--force-with-lease", "origin", "main");
+  ok(world.ag(["push"]));
+
+  assert.equal(world.git(world.base, "--git-dir", mine, "rev-parse", "main"), before);
+  assert.equal(world.exists("core.txt", world.edit), false);
+});
+
+test("pre-commit rejects a commit on main in a store with an Upstream store", () => {
+  ok(world.ag(["init", world.bareRepo("mine")]));
+  ok(world.ag(["new", "personal"]));
+  world.write("core.txt", "mine\n", world.edit);
+  world.git(world.edit, "add", "-A");
+
+  const output = fails(world.tryGit(world.edit, "commit", "-q", "-m", "Change core.txt on my main"));
+
+  assert.match(output, /pre-commit: main is the Core branch\. Core is read-only/);
+  assert.match(output, /ag owner <path>/);
+});
+
+test("pre-commit rejects Core files on a profile branch and allows profile files", () => {
+  ok(world.ag(["init", world.bareRepo("mine")]));
+  ok(world.ag(["new", "personal"]));
+  world.write("core.txt", "mine\n");
+  world.write("profiles/personal/notes.md", "notes\n");
+  world.git(world.store, "add", "-A");
+
+  const output = fails(world.tryGit(world.store, "commit", "-q", "-m", "Mixed change"));
+
+  assert.match(output, /these staged files are Core.*:\n {2}core\.txt\n/s);
+  assert.doesNotMatch(output, /profiles\/personal\/notes\.md/);
+
+  world.git(world.store, "reset", "-q", "--", "core.txt");
+  world.git(world.store, "commit", "-q", "-m", "Add notes");
+  assert.equal(world.git(world.store, "log", "-1", "--format=%s"), "Add notes");
+});
+
+test("pre-commit allows the commit that concludes a merge of main into a profile", () => {
+  const mine = world.bareRepo("mine");
+  ok(world.ag(["init", mine]));
+  ok(world.ag(["new", "personal"]));
+  world.write("core.txt", "mine\n");
+  commitPastHook(world.store, "Change core.txt on my profile");
+  pushUpstreamChange("core.txt", "upstream\n");
+
+  assert.match(fails(world.ag(["update"])), /Conflict in ~\/\.agents on branch personal\./);
+
+  world.write("core.txt", "upstream\n");
+  world.git(world.store, "add", "core.txt");
+  world.git(world.store, "commit", "-q", "--no-edit");
+  ok(world.ag(["update"]));
+
+  assert.equal(show(mine, "main:core.txt"), "upstream");
 });
 
 test("ag update refuses when only origin's main has commits of its own", () => {
@@ -178,4 +239,7 @@ test("Core is read-only in a store with an Upstream store, until upstream is rem
   assert.match(ok(world.ag(["status"])), /Core:\s+owned by this store/);
   assert.match(ok(world.ag(["owner", "README.md"])), /Branch:\s+main\n/);
   ok(world.ag(["edit", "main"]));
+  world.write("core.txt", "mine\n", world.edit);
+  world.commitAll(world.edit, "Change core.txt on main I own");
+  assert.equal(world.git(world.edit, "log", "-1", "--format=%s"), "Change core.txt on main I own");
 });

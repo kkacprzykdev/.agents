@@ -136,7 +136,7 @@ Each profile lives on its own branch, named after the profile. A Root profile is
 │   ├── bin/ag.mjs
 │   ├── runtimes.yaml    # runtime mappings: agent homes and target folders
 │   └── test/            # node:test suite
-├── .githooks/           # pre-push (push protection) and pre-commit (runs the ag tests)
+├── .githooks/           # pre-push (push protection) and pre-commit (read-only Core, runs the ag tests)
 ├── .github/workflows/   # runs the ag tests on Linux, macOS, and Windows
 ├── .gitattributes       # Unix line endings in every checkout
 │
@@ -223,7 +223,7 @@ Every store path has one owning branch. `ag owner <path>` prints it, with the ch
 - A third-party skill belongs to the highest branch in the Lineage that contains it. A new one, the `skills/` folder itself, and `.skill-lock.json` belong to the Active profile.
 - Everything else belongs to `main`.
 
-In a store with an Upstream store, Core is read-only, and `ag status` prints `Core: read-only, from <url>`. `ag owner` refuses every path that belongs to `main`, and `ag edit main` refuses too. `ag push` and `ag update` refuse while `main` has commits that `upstream/main` does not, and print how to reset it. The message of `ag owner` and `ag edit` says where the change goes instead:
+In a store with an Upstream store, Core is read-only, and `ag status` prints `Core: read-only, from <url>`. `ag owner` refuses every path that belongs to `main`, and `ag edit main` refuses too. `ag push` and `ag update` refuse while `main` has commits that `upstream/main` does not, and print how to reset it. The `pre-commit` hook rejects a raw `git commit` on `main`, and a commit on any other branch that stages a file outside `profiles/`, `skills/`, and `.skill-lock.json`. A commit that concludes a merge passes. The message of `ag owner` and `ag edit` says where the change goes instead:
 
 - A store-level skill, rule, command, or subagent goes in a profile, under `profiles/<profile>/artifacts/<kind>-profile-me/`.
 - A change to `ag`, the docs, or the runtime mappings goes in an issue on the Upstream store.
@@ -319,7 +319,7 @@ A kind without a target is not linked into that runtime. `link-ext: .md` gives e
 cd ~/.agents/sync && npm test
 ```
 
-The suite builds throwaway stores with a local `origin` and a fake home directory. Stubs stand in for `npm`, `npx`, and `gh`, so a test never links packages or creates repositories. The `pre-commit` hook runs it for every commit that changes `sync/` or `.githooks/`, and a failing test blocks the commit. The `ag tests` GitHub Actions workflow runs it on Linux, macOS, and Windows, then runs a git hook from that checkout.
+The suite builds throwaway stores with a local `origin` and a fake home directory. Stubs stand in for `npm`, `npx`, and `gh`, so a test never links packages or creates repositories. The `pre-commit` hook runs it for every commit that changes `sync/` or `.githooks/`, and a failing test blocks the commit. The `ag tests` GitHub Actions workflow runs it on Linux, macOS, and Windows, then runs a git hook from that checkout. The workflow runs only in this repository. In your own store's repository its job is skipped, so it uses none of your Actions minutes.
 
 Domain glossary: [`CONTEXT-MAP.md`](./CONTEXT-MAP.md). Decisions: [`docs/adr/`](./docs/adr/). Docs describe the current state only (`artifacts/rules-store-me/store-docs.mdc`).
 

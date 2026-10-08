@@ -10,7 +10,7 @@ alwaysApply: true
 Run `ag status` and read its `Core:` line before any other step.
 
 - **`owned by this store`:** this store has no Upstream store. Core is edited on `main`, as the rest of this rule describes.
-- **`read-only, from <url>`:** this store takes Core from an Upstream store. Never edit `main` or any Core path, on any branch. Core is everything outside `profiles/`, `skills/`, and `.skill-lock.json`. Put a store-level rule, skill, command, or subagent in a profile instead. `ag owner` and `ag edit main` refuse Core paths and name where the change goes. `ag push` and `ag update` refuse a `main` with commits of its own. Follow their message.
+- **`read-only, from <url>`:** this store takes Core from an Upstream store. Never edit `main` or any Core path, on any branch. Core is everything outside `profiles/`, `skills/`, and `.skill-lock.json`. Put a store-level rule, skill, command, or subagent in a profile instead. `ag owner` and `ag edit main` refuse Core paths and name where the change goes. `ag push` and `ag update` refuse a `main` with commits of its own. The `pre-commit` hook rejects a commit on `main` and a commit that stages a Core file. Follow their message.
 
 Canonical store: `~/.agents/` (see `~/.agents/README.md`). `ag sync` symlinks the artifacts of the Active profile's Lineage into every runtime that profile uses. The runtime mappings live in `~/.agents/sync/runtimes.yaml`. Cursor and Claude are current mappings, not the supported-agent boundary. Future mappings may include Codex, T3 Code, or other compatible runtimes.
 
