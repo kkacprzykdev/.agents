@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createDefault, createWorld, fails, ok } from "./world.mjs";
 
@@ -67,18 +67,37 @@ test("ag sync refuses other files in an instructions folder", () => {
   );
 });
 
-test("a real CLAUDE.md in an agent home is a Blocker when a profile has one, and unmanaged otherwise", () => {
+test("a real CLAUDE.md in an agent home is unmanaged when no profile has one", () => {
   createDefault(world);
+  world.git(world.store, "rm", "-q", `${INSTRUCTIONS}/CLAUDE.md`);
+  world.commitAll(world.store, "Drop CLAUDE.md");
+  ok(world.ag(["sync"]));
   writeFileSync(join(world.home, ".claude/CLAUDE.md"), "mine\n");
 
   assert.match(
     ok(world.ag(["sync"])),
     /~\/\.claude\/CLAUDE\.md \(move into profiles\/default\/artifacts\/instructions-profile-me\/ to manage it\)/,
   );
+});
 
-  world.write(`${INSTRUCTIONS}/CLAUDE.md`, "profile\n");
-  assert.match(fails(world.ag(["sync"])), /Blocker: .*\n  ~\/\.claude\/CLAUDE\.md \(instructions\)/);
+test("a real CLAUDE.md is a Blocker when a profile has one, and the message says to move its text into AGENTS.md", () => {
+  createDefault(world);
+  rmSync(join(world.home, ".claude/CLAUDE.md"));
+  writeFileSync(join(world.home, ".claude/CLAUDE.md"), "mine\n");
+
+  let output = fails(world.ag(["sync"]));
+  assert.match(output, /Blocker: .*\n  ~\/\.claude\/CLAUDE\.md \(instructions\)\n/);
+  assert.match(
+    output,
+    /Move the text you want to keep from each instruction file into profiles\/default\/artifacts\/instructions-profile-me\/AGENTS\.md, then delete the file\. Then run ag sync again\./,
+  );
+  assert.doesNotMatch(output, /rename it/);
   assert.equal(world.read(".claude/CLAUDE.md", world.home), "mine\n");
+
+  rmSync(join(world.home, ".cursor/rules/default-rule.mdc"));
+  writeFileSync(join(world.home, ".cursor/rules/default-rule.mdc"), "mine\n");
+  output = fails(world.ag(["sync"]));
+  assert.match(output, /Delete each other file or folder, or rename it and move it into profiles\/default\/artifacts\/<kind>-profile-me\/ to keep both\. Move the text/);
 });
 
 test("Codex gets store and profile skills, but not third-party skills, which it reads from ~/.agents/skills", () => {

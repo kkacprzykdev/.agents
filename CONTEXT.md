@@ -39,7 +39,7 @@ The git branch that carries one profile, named after it. It also carries the fol
 _Avoid_: Pack branch, environment branch
 
 **Profile skeleton**:
-What `ag new` always writes for a new profile: `profile.yaml` and the five `artifacts/<kind>-profile-me/` folders. Everything else in a profile folder is added later, only to extend the Lineage.
+What `ag new` always writes for a new profile: `profile.yaml` and the five `artifacts/<kind>-profile-me/` folders. A Root profile that is not a Clean profile also gets both Global instructions files: an empty `AGENTS.md`, and a `CLAUDE.md` that imports it with `@~/.claude/AGENTS.md`. Everything else in a profile folder is added later, only to extend the Lineage.
 _Avoid_: Profile template, copying the parent's folder
 
 **Clean profile**:
@@ -69,7 +69,7 @@ A skill, command, rule, subagent, or Global instructions file that lives inside 
 _Avoid_: Local-only artifact, private skill, personal artifact directories at the store root
 
 **Global instructions file**:
-A profile's `AGENTS.md` or `CLAUDE.md`, in its `artifacts/instructions-profile-me/` folder. `ag sync` links it into the Agent home of Claude and Codex. Only one profile in a Lineage can have each file.
+A profile's `AGENTS.md` or `CLAUDE.md`, in its `artifacts/instructions-profile-me/` folder. `ag sync` links it into the Agent home of Claude and Codex. Only one profile in a Lineage can have each file, and a Root profile starts with both.
 _Avoid_: Memory file, global rule, context file
 
 **Store artifact**:

@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
+import { mkdirSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createDefault, createWorld, fails, ok } from "./world.mjs";
+
+const INSTRUCTIONS = "profiles/default/artifacts/instructions-profile-me";
 
 let world;
 beforeEach(() => {
@@ -14,9 +16,13 @@ test("ag new from main writes the skeleton, commits, pushes, and links store art
   ok(world.ag(["new", "default"]));
 
   assert.equal(world.read("profiles/default/profile.yaml"), "parent: main\n");
-  for (const kind of ["skills", "commands", "rules", "subagents", "instructions"]) {
+  for (const kind of ["skills", "commands", "rules", "subagents"]) {
     assert.ok(world.exists(`profiles/default/artifacts/${kind}-profile-me/.gitkeep`));
   }
+  assert.deepEqual(readdirSync(join(world.store, INSTRUCTIONS)).sort(), ["AGENTS.md", "CLAUDE.md"]);
+  assert.equal(world.read(`${INSTRUCTIONS}/AGENTS.md`), "");
+  assert.equal(world.read(`${INSTRUCTIONS}/CLAUDE.md`), "@~/.claude/AGENTS.md\n");
+  assert.equal(world.linkTarget(".claude/CLAUDE.md"), join(world.store, INSTRUCTIONS, "CLAUDE.md"));
   assert.equal(world.read("profiles/.env.active"), "ACTIVE_PROFILE=default\n");
   assert.equal(world.git(world.store, "log", "-1", "--format=%s"), "Create profile `default`");
   assert.ok(world.originHasBranch("default"));
@@ -58,6 +64,60 @@ test("ag new --from copies local files, keeps them ignored, inherits links, and 
     world.linkTarget(".cursor/rules/default-rule.mdc"),
     join(world.store, "profiles/default/artifacts/rules-profile-me/default-rule.mdc"),
   );
+  assert.deepEqual(readdirSync(join(world.store, "profiles/child/artifacts/instructions-profile-me")), [".gitkeep"]);
+  assert.equal(world.linkTarget(".claude/AGENTS.md"), join(world.store, INSTRUCTIONS, "AGENTS.md"));
+});
+
+test("ag new refuses before creating anything when a real global instruction file would block ag sync", () => {
+  mkdirSync(join(world.home, ".codex"));
+  writeFileSync(join(world.home, ".claude/CLAUDE.md"), "mine\n");
+  writeFileSync(join(world.home, ".codex/AGENTS.md"), "mine\n");
+  writeFileSync(join(world.home, ".cursor/AGENTS.md"), "cursor reads no global AGENTS.md\n");
+
+  const output = fails(world.ag(["new", "default"]));
+
+  assert.match(output, /These real global instruction files would block ag sync, so ag new changed nothing:/);
+  assert.match(output, /  ~\/\.claude\/CLAUDE\.md\n  ~\/\.codex\/AGENTS\.md\n/);
+  assert.doesNotMatch(output, /\.cursor/);
+  assert.match(output, /Rename each one, for example to CLAUDE\.md\.old\./);
+  assert.equal(world.git(world.store, "branch", "--list", "default"), "");
+  assert.equal(world.git(world.store, "branch", "--show-current"), "main");
+  assert.equal(world.exists("profiles"), false);
+
+  renameSync(join(world.home, ".claude/CLAUDE.md"), join(world.home, ".claude/CLAUDE.md.old"));
+  rmSync(join(world.home, ".codex/AGENTS.md"));
+  symlinkSync(join(world.home, ".claude/CLAUDE.md.old"), join(world.home, ".codex/CLAUDE.md"));
+
+  ok(world.ag(["new", "default"]));
+  assert.equal(world.linkTarget(".codex/CLAUDE.md"), join(world.store, INSTRUCTIONS, "CLAUDE.md"));
+});
+
+test("ag new from a parent checks only the instruction files its Lineage has, and a clean profile checks none", () => {
+  createDefault(world);
+  world.git(world.store, "rm", "-q", `${INSTRUCTIONS}/CLAUDE.md`);
+  world.commitAll(world.store, "Drop CLAUDE.md");
+  ok(world.ag(["push"]));
+  ok(world.ag(["sync"]));
+  writeFileSync(join(world.home, ".claude/CLAUDE.md"), "mine\n");
+
+  ok(world.ag(["new", "child", "--from", "default"]));
+
+  rmSync(join(world.home, ".claude/AGENTS.md"));
+  writeFileSync(join(world.home, ".claude/AGENTS.md"), "mine\n");
+  ok(world.ag(["new", "clean", "--clean"]));
+  assert.deepEqual(readdirSync(join(world.store, "profiles/clean/artifacts/instructions-profile-me")), [".gitkeep"]);
+});
+
+test("ag new from a parent refuses when the Lineage has an instruction file that a real file would block", () => {
+  createDefault(world);
+  rmSync(join(world.home, ".claude/CLAUDE.md"));
+  writeFileSync(join(world.home, ".claude/CLAUDE.md"), "mine\n");
+
+  assert.match(
+    fails(world.ag(["new", "child", "--from", "default"])),
+    /would block ag sync, so ag new changed nothing:\n  ~\/\.claude\/CLAUDE\.md\n/,
+  );
+  assert.equal(world.git(world.store, "branch", "--list", "child"), "");
 });
 
 test("ag new refuses before creating anything when the Edit worktree has changes", () => {
