@@ -42,13 +42,15 @@ const HELP = `ag — manage the ~/.agents store
 Usage:
   ag help                         Show this help.
   ag init [<url>]                 Turn a fresh clone into your own store: upstream for Core, origin for your pushes.
-  ag new <name> [--from <parent>] [--protect]
+  ag new <name> [--from <parent>] [--protect] [--clean]
                                   Create a profile branch from main, or from a parent profile.
+                                  --clean creates a clean profile from main, which links no store artifacts.
   ag use <profile>                Check out the profile's branch, then sync.
-  ag sync [--dry-run]             Recreate runtime symlinks for the Active profile's Lineage.
+  ag sync [--dry-run]             Recreate the symlinks in every coding agent for the Active profile's Lineage.
   ag status                       Show whether Core is read-only, the Active profile, Lineage, Edit worktree,
                                   protection, and symlinks.
   ag setup                        Name the Active profile's setup skill, or print the prompt to create it.
+                                  A clean profile needs no setup.
   ag owner <path>                 Print the store path, the branch that owns it, and where to edit it.
                                   A relative path is resolved from the current directory.
   ag edit <branch>                Switch the Edit worktree to a branch.
@@ -199,7 +201,7 @@ function stripComment(line) {
 }
 
 function parseProfileYaml(content, label) {
-  const config = { parent: null, localFiles: [] };
+  const config = { parent: null, clean: false, localFiles: [] };
 
   for (const rawLine of lines(content)) {
     const line = stripComment(rawLine);
@@ -216,6 +218,11 @@ function parseProfileYaml(content, label) {
     if (key === "parent") {
       assertParentName(value.trim(), label);
       config.parent = value.trim();
+    } else if (key === "clean") {
+      if (!["true", "false"].includes(value.trim())) {
+        throw new Error(`${label}: clean must be true or false`);
+      }
+      config.clean = value.trim() === "true";
     } else if (key === "local-files") {
       const list = parseInlineList(value);
       if (!list) {
@@ -248,8 +255,11 @@ function assertLocalFile(file, label) {
   }
 }
 
-function serializeProfileYaml({ parent, localFiles }) {
+function serializeProfileYaml({ parent, clean, localFiles }) {
   const lines = [`parent: ${parent}`];
+  if (clean) {
+    lines.push("clean: true");
+  }
   if (localFiles.length) {
     lines.push(`local-files: [${localFiles.join(", ")}]`);
   }
@@ -365,10 +375,10 @@ function loadRuntimes() {
   return parseRuntimesYaml(readFileSync(RUNTIMES_FILE, "utf8"));
 }
 
-function sourcesFor(kind, chain) {
+function sourcesFor(kind, chain, { clean }) {
   return [
     ...(kind === "skills" ? ["skills"] : []),
-    `artifacts/${kind}-store-me`,
+    ...(clean ? [] : [`artifacts/${kind}-store-me`]),
     ...chain.map((profile) => `profiles/${profile}/artifacts/${kind}-profile-me`),
   ];
 }
@@ -376,13 +386,14 @@ function sourcesFor(kind, chain) {
 function linkPlan(profile) {
   const chain = lineage(profile);
   const runtimes = loadRuntimes();
+  const { clean } = readProfileConfig(profile);
 
   return Object.entries(runtimes).map(([name, runtime]) => ({
     name,
     home: runtime.home,
     links: KINDS.filter((kind) => runtime.targets[kind]).map((kind) => ({
       kind,
-      sources: sourcesFor(kind, chain),
+      sources: sourcesFor(kind, chain, { clean }),
       target: runtime.targets[kind],
       linkExt: runtime.linkExt[kind],
     })),
@@ -1168,6 +1179,10 @@ function setupPrompt(profile) {
 
 function runSetup() {
   const profile = readActiveProfile();
+  if (readProfileConfig(profile).clean) {
+    console.log(`The ${profile} profile needs no setup.`);
+    return;
+  }
   if (existsSync(join(STORE_ROOT, setupSkillPath(profile)))) {
     console.log(`Ask your agent to run the setup-${profile} skill to configure the ${profile} profile.`);
     return;
@@ -1177,7 +1192,7 @@ function runSetup() {
 }
 
 function parseNewArgs(args) {
-  const options = { name: null, from: null, protect: false };
+  const options = { name: null, from: null, protect: false, clean: false };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--from") {
@@ -1185,6 +1200,8 @@ function parseNewArgs(args) {
       index += 1;
     } else if (arg === "--protect") {
       options.protect = true;
+    } else if (arg === "--clean") {
+      options.clean = true;
     } else if (!options.name && !arg.startsWith("--")) {
       options.name = arg;
     } else {
@@ -1195,10 +1212,13 @@ function parseNewArgs(args) {
 }
 
 function runNew(args) {
-  const { name, from, protect } = parseNewArgs(args);
+  const { name, from, protect, clean } = parseNewArgs(args);
   assertProfileName(name);
   if (name === CORE_BRANCH) {
     throw new Error(`"${CORE_BRANCH}" is the Core branch, not a profile name.`);
+  }
+  if (clean && from !== null) {
+    throw new Error(`A clean profile is created from ${CORE_BRANCH}. Leave out --from.`);
   }
   if (from !== null) {
     assertProfileName(from);
@@ -1240,7 +1260,7 @@ function runNew(args) {
   mkdirSync(profileDir, { recursive: true });
   writeFileSync(
     join(profileDir, "profile.yaml"),
-    serializeProfileYaml({ parent, localFiles }),
+    serializeProfileYaml({ parent, clean, localFiles }),
   );
   for (const kind of KINDS) {
     const kindDir = join(profileDir, "artifacts", `${kind}-profile-me`);
