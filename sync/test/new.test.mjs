@@ -14,7 +14,7 @@ test("ag new from main writes the skeleton, commits, pushes, and links store art
   ok(world.ag(["new", "default"]));
 
   assert.equal(world.read("profiles/default/profile.yaml"), "parent: main\n");
-  for (const kind of ["skills", "commands", "rules", "subagents"]) {
+  for (const kind of ["skills", "commands", "rules", "subagents", "instructions"]) {
     assert.ok(world.exists(`profiles/default/artifacts/${kind}-profile-me/.gitkeep`));
   }
   assert.equal(world.read("profiles/.env.active"), "ACTIVE_PROFILE=default\n");

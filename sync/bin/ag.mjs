@@ -31,7 +31,8 @@ const RUNTIMES_FILE = join(STORE_ROOT, "sync", "runtimes.yaml");
 const CORE_BRANCH = "main";
 const UPSTREAM = "upstream";
 const HOOKS_PATH = ".githooks";
-const KINDS = ["skills", "commands", "rules", "subagents"];
+const KINDS = ["skills", "commands", "rules", "subagents", "instructions"];
+const INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md"];
 const PROFILE_NAME = /^[A-Za-z0-9._-]+$/;
 const EXCLUDE_HEADER = "# ag: local files listed in profile.yaml";
 
@@ -318,7 +319,7 @@ function parseRuntimesYaml(content) {
 
     let match = line.match(/^([A-Za-z0-9_-]+):$/);
     if (match) {
-      runtime = { home: null, targets: {}, linkExt: {} };
+      runtime = { home: null, readsStoreSkills: false, targets: {}, linkExt: {} };
       runtimes[match[1]] = runtime;
       section = null;
       continue;
@@ -330,6 +331,13 @@ function parseRuntimesYaml(content) {
     match = line.match(/^  home:\s*(\S+)$/);
     if (match) {
       runtime.home = match[1];
+      section = null;
+      continue;
+    }
+
+    match = line.match(/^  reads-store-skills:\s*(true|false)$/);
+    if (match) {
+      runtime.readsStoreSkills = match[1] === "true";
       section = null;
       continue;
     }
@@ -375,12 +383,22 @@ function loadRuntimes() {
   return parseRuntimesYaml(readFileSync(RUNTIMES_FILE, "utf8"));
 }
 
-function sourcesFor(kind, chain, { clean }) {
+function sourcesFor(kind, chain, { clean, readsStoreSkills }) {
+  const profileSources = chain.map((profile) => `profiles/${profile}/artifacts/${kind}-profile-me`);
+  if (kind === "instructions") {
+    return profileSources;
+  }
   return [
-    ...(kind === "skills" ? ["skills"] : []),
+    ...(kind === "skills" && !readsStoreSkills ? ["skills"] : []),
     ...(clean ? [] : [`artifacts/${kind}-store-me`]),
-    ...chain.map((profile) => `profiles/${profile}/artifacts/${kind}-profile-me`),
+    ...profileSources,
   ];
+}
+
+// The instructions target is the agent home itself, which also holds the agent's own files and links.
+// There ag sync touches only the instruction file names.
+function manages(link, name) {
+  return link.kind !== "instructions" || INSTRUCTION_FILES.some((file) => file.toLowerCase() === name.toLowerCase());
 }
 
 function linkPlan(profile) {
@@ -393,7 +411,7 @@ function linkPlan(profile) {
     home: runtime.home,
     links: KINDS.filter((kind) => runtime.targets[kind]).map((kind) => ({
       kind,
-      sources: sourcesFor(kind, chain, { clean }),
+      sources: sourcesFor(kind, chain, { clean, readsStoreSkills: runtime.readsStoreSkills }),
       target: runtime.targets[kind],
       linkExt: runtime.linkExt[kind],
     })),
@@ -416,7 +434,7 @@ function linkNameFor(name, sourcePath, linkExt) {
   return name.replace(/(\.[^.]+)?$/, linkExt);
 }
 
-function collectArtifacts(sources, { quiet = false, linkExt } = {}) {
+function collectArtifacts(sources, { quiet = false, kind, linkExt } = {}) {
   const artifacts = new Map();
   // Keyed by lower case, because macOS and Windows treat Foo and foo as one file.
   const sourceOf = new Map();
@@ -435,6 +453,9 @@ function collectArtifacts(sources, { quiet = false, linkExt } = {}) {
     existingSourceCount += 1;
 
     for (const name of listArtifacts(sourceDir)) {
+      if (kind === "instructions" && !INSTRUCTION_FILES.includes(name)) {
+        throw new Error(`${source}/${name}: an instructions folder holds only ${INSTRUCTION_FILES.join(" and ")}`);
+      }
       const sourcePath = resolve(sourceDir, name);
       const linkName = linkNameFor(name, sourcePath, linkExt);
       const key = linkName.toLowerCase();
@@ -452,7 +473,7 @@ function collectArtifacts(sources, { quiet = false, linkExt } = {}) {
   return { artifacts, existingSourceCount };
 }
 
-function removeSymlinks(targetDir) {
+function removeSymlinks(link, targetDir) {
   if (!existsSync(targetDir)) {
     return [];
   }
@@ -461,7 +482,7 @@ function removeSymlinks(targetDir) {
 
   for (const name of readdirSync(targetDir)) {
     const entryPath = join(targetDir, name);
-    if (lstatSync(entryPath).isSymbolicLink()) {
+    if (manages(link, name) && lstatSync(entryPath).isSymbolicLink()) {
       removed.push(entryPath);
       if (!dryRun) {
         unlinkSync(entryPath);
@@ -484,7 +505,7 @@ function findRealEntries(mappings) {
     const names = new Set([...artifacts.keys()].map((name) => name.toLowerCase()));
     for (const name of listArtifacts(targetDir)) {
       const path = join(targetDir, name);
-      if (lstatSync(path).isSymbolicLink()) {
+      if (!manages(link, name) || lstatSync(path).isSymbolicLink()) {
         continue;
       }
       (names.has(name.toLowerCase()) ? blockers : unmanaged).push({ path, kind: link.kind });
@@ -583,6 +604,7 @@ function planMappings(plan) {
 
     for (const link of runtime.links) {
       const { artifacts, existingSourceCount } = collectArtifacts(link.sources, {
+        kind: link.kind,
         linkExt: link.linkExt,
       });
       if (existingSourceCount === 0) {
@@ -604,8 +626,8 @@ function planMappings(plan) {
   return { mappings, runtimeCount: runtimeNames.size };
 }
 
-function syncMapping({ targetDir, artifacts }) {
-  const removedLinks = removeSymlinks(targetDir);
+function syncMapping({ link, targetDir, artifacts }) {
+  const removedLinks = removeSymlinks(link, targetDir);
   for (const entryPath of removedLinks) {
     log(dryRun ? "info" : "removed", `symlink ${entryPath}`);
   }
@@ -708,7 +730,7 @@ function findStaleSymlinks(profile) {
     for (const link of runtime.links) {
       const { artifacts, existingSourceCount } = collectArtifacts(
         link.sources,
-        { quiet: true, linkExt: link.linkExt },
+        { quiet: true, kind: link.kind, linkExt: link.linkExt },
       );
       if (existingSourceCount === 0) {
         continue;
@@ -719,7 +741,7 @@ function findStaleSymlinks(profile) {
       if (existsSync(targetDir)) {
         for (const name of readdirSync(targetDir)) {
           const entryPath = join(targetDir, name);
-          if (lstatSync(entryPath).isSymbolicLink()) {
+          if (manages(link, name) && lstatSync(entryPath).isSymbolicLink()) {
             actual.set(name, readlinkSync(entryPath));
           }
         }
