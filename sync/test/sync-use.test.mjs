@@ -87,6 +87,16 @@ test("ag sync reads runtimes.yaml and profile.yaml with Windows line endings", (
   );
 });
 
+test("ag sync refuses a profile.yaml with a runtimes line and names the line to delete", () => {
+  createDefault(world);
+  world.write("profiles/default/profile.yaml", "parent: main\nruntimes: [cursor]\n");
+
+  assert.match(
+    fails(world.ag(["sync"])),
+    /profiles\/default\/profile\.yaml: delete the runtimes line\. Every profile links into every coding agent\./,
+  );
+});
+
 test("ag sync treats names that differ only in letter case as a collision", () => {
   createDefault(world);
   world.write("artifacts/rules-store-me/Default-Rule.mdc", "store copy\n");

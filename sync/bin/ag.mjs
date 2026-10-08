@@ -199,7 +199,7 @@ function stripComment(line) {
 }
 
 function parseProfileYaml(content, label) {
-  const config = { parent: null, runtimes: null, localFiles: [] };
+  const config = { parent: null, localFiles: [] };
 
   for (const rawLine of lines(content)) {
     const line = stripComment(rawLine);
@@ -216,17 +216,15 @@ function parseProfileYaml(content, label) {
     if (key === "parent") {
       assertParentName(value.trim(), label);
       config.parent = value.trim();
-    } else if (key === "runtimes" || key === "local-files") {
+    } else if (key === "local-files") {
       const list = parseInlineList(value);
       if (!list) {
         throw new Error(`${label}: ${key} must be an inline list like [a, b]`);
       }
-      if (key === "runtimes") {
-        config.runtimes = list;
-      } else {
-        list.forEach((file) => assertLocalFile(file, label));
-        config.localFiles = list;
-      }
+      list.forEach((file) => assertLocalFile(file, label));
+      config.localFiles = list;
+    } else if (key === "runtimes") {
+      throw new Error(`${label}: delete the runtimes line. Every profile links into every coding agent.`);
     } else {
       throw new Error(`${label}: unknown key "${key}"`);
     }
@@ -250,11 +248,8 @@ function assertLocalFile(file, label) {
   }
 }
 
-function serializeProfileYaml({ parent, runtimes, localFiles }) {
+function serializeProfileYaml({ parent, localFiles }) {
   const lines = [`parent: ${parent}`];
-  if (runtimes) {
-    lines.push(`runtimes: [${runtimes.join(", ")}]`);
-  }
   if (localFiles.length) {
     lines.push(`local-files: [${localFiles.join(", ")}]`);
   }
@@ -381,24 +376,17 @@ function sourcesFor(kind, chain) {
 function linkPlan(profile) {
   const chain = lineage(profile);
   const runtimes = loadRuntimes();
-  const selected = readProfileConfig(profile).runtimes ?? Object.keys(runtimes);
 
-  return selected.map((name) => {
-    const runtime = runtimes[name];
-    if (!runtime) {
-      throw new Error(`Profile "${profile}" uses unknown runtime "${name}"`);
-    }
-    return {
-      name,
-      home: runtime.home,
-      links: KINDS.filter((kind) => runtime.targets[kind]).map((kind) => ({
-        kind,
-        sources: sourcesFor(kind, chain),
-        target: runtime.targets[kind],
-        linkExt: runtime.linkExt[kind],
-      })),
-    };
-  });
+  return Object.entries(runtimes).map(([name, runtime]) => ({
+    name,
+    home: runtime.home,
+    links: KINDS.filter((kind) => runtime.targets[kind]).map((kind) => ({
+      kind,
+      sources: sourcesFor(kind, chain),
+      target: runtime.targets[kind],
+      linkExt: runtime.linkExt[kind],
+    })),
+  }));
 }
 
 const OS_METADATA = new Set(["desktop.ini", "thumbs.db"]);
@@ -1252,7 +1240,7 @@ function runNew(args) {
   mkdirSync(profileDir, { recursive: true });
   writeFileSync(
     join(profileDir, "profile.yaml"),
-    serializeProfileYaml({ parent, runtimes: parentConfig?.runtimes ?? null, localFiles }),
+    serializeProfileYaml({ parent, localFiles }),
   );
   for (const kind of KINDS) {
     const kindDir = join(profileDir, "artifacts", `${kind}-profile-me`);
