@@ -22,6 +22,12 @@ test("ag setup prints the prompt when the Active profile has no setup skill of i
   assert.match(fails(world.ag(["setup"])), /Research the `child` profile/);
 });
 
+test("ag setup reports that a clean profile needs no setup", () => {
+  ok(world.ag(["new", "clean", "--clean"]));
+
+  assert.match(ok(world.ag(["setup"])), /The clean profile needs no setup\./);
+});
+
 test("ag skills add installs, commits, pushes, and links the skill", () => {
   createDefault(world);
   world.stub(

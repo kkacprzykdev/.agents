@@ -13,7 +13,7 @@ A second checkout at `~/.agents-edit`, used to edit and commit any branch other 
 _Avoid_: Base worktree, Ancestor worktree, second clone
 
 **Sync**:
-Remove every symlink in each runtime target directory, then recreate symlinks for every current item in the relevant canonical directories. Non-symlink files are left untouched: Blockers stop sync, and Unmanaged artifacts are listed. Handles adds, renames, and removals since the last sync. A missing source directory is skipped with a warning. If every source for a mapping is missing, that mapping is skipped and the target is left unchanged. An empty source directory (or one with only hidden entries) contributes no artifacts; if at least one source exists, the target is still cleared and recreated.
+Remove every symlink in each runtime target directory, then recreate symlinks for every current item in the relevant canonical directories. Non-symlink files are left untouched: Blockers stop sync, and Unmanaged artifacts are listed. Handles adds, renames, and removals since the last sync. A missing source directory is skipped with a warning. If every source for a mapping is missing, that mapping is skipped and the target is left unchanged. An empty source directory (or one with only hidden entries) contributes no artifacts; if at least one source exists, the target is still cleared and recreated. The `instructions` target is the Agent home itself. There sync manages only the names `AGENTS.md` and `CLAUDE.md`, in any letter case, and never removes or lists any other file or symlink.
 _Avoid_: Pull, update, deploy
 
 **Update**:
@@ -25,11 +25,11 @@ A folder in an Agent home (e.g. `~/.cursor/skills/`) that receives symlinks poin
 _Avoid_: Destination, install location
 
 **Runtime mapping**:
-One Coding agent's entry in `sync/runtimes.yaml`: its Agent home, the target folder for each artifact kind, and an optional link extension per kind. Core owns every runtime mapping. A profile only names the runtimes it uses.
-_Avoid_: sync.yaml, a per-profile copy of the mappings
+One Coding agent's entry in `sync/runtimes.yaml`: its Agent home, the target folder for each artifact kind, and an optional link extension per kind. `reads-store-skills: true` marks a coding agent that reads third-party skills from `~/.agents/skills/` itself, so sync does not link them into it. Core owns every runtime mapping, and every profile links into every coding agent.
+_Avoid_: sync.yaml, a per-profile copy of the mappings, a per-profile runtimes list
 
 **Link mapping**:
-One source list paired with one runtime target, worked out by `ag` for each artifact kind of a runtime. The sources are `skills/` (skills only), the kind's store artifacts, then each Lineage profile's `artifacts/<kind>-profile-me/`, from the top down. Missing sources are skipped. The mapping runs if any source directory exists.
+One source list paired with one runtime target, worked out by `ag` for each artifact kind of a runtime. The sources are `skills/` (skills only, and not for a coding agent with `reads-store-skills: true`), the kind's store artifacts (not in a Clean profile), then each Lineage profile's `artifacts/<kind>-profile-me/`, from the top down. The `instructions` kind has only the profile sources. Missing sources are skipped. The mapping runs if any source directory exists.
 _Avoid_: Sync rule, path mapping
 
 **Coding agent**:
@@ -45,7 +45,7 @@ The artifact kinds that `ag sync` links into one Coding agent. A kind is mapped 
 _Avoid_: Fully supported, partially supported, primary runtime, assuming runtime neutrality means feature parity
 
 **Collision**:
-When two source directories contribute an entry with the same name to the same runtime target, sync aborts with an error. No silent overwrites. A child profile that needs a different artifact gives it a different name.
+When two source directories contribute an entry with the same name to the same runtime target, sync aborts with an error. No silent overwrites. A child profile that needs a different artifact gives it a different name. This applies to Global instructions files too, so only one profile in a Lineage can have each one.
 _Avoid_: Override, merge conflict, nearest profile wins
 
 **`-me` suffix**:

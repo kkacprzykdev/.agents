@@ -31,7 +31,8 @@ const RUNTIMES_FILE = join(STORE_ROOT, "sync", "runtimes.yaml");
 const CORE_BRANCH = "main";
 const UPSTREAM = "upstream";
 const HOOKS_PATH = ".githooks";
-const KINDS = ["skills", "commands", "rules", "subagents"];
+const KINDS = ["skills", "commands", "rules", "subagents", "instructions"];
+const INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md"];
 const PROFILE_NAME = /^[A-Za-z0-9._-]+$/;
 const EXCLUDE_HEADER = "# ag: local files listed in profile.yaml";
 
@@ -42,13 +43,15 @@ const HELP = `ag — manage the ~/.agents store
 Usage:
   ag help                         Show this help.
   ag init [<url>]                 Turn a fresh clone into your own store: upstream for Core, origin for your pushes.
-  ag new <name> [--from <parent>] [--protect]
+  ag new <name> [--from <parent>] [--protect] [--clean]
                                   Create a profile branch from main, or from a parent profile.
+                                  --clean creates a clean profile from main, which links no store artifacts.
   ag use <profile>                Check out the profile's branch, then sync.
-  ag sync [--dry-run]             Recreate runtime symlinks for the Active profile's Lineage.
+  ag sync [--dry-run]             Recreate the symlinks in every coding agent for the Active profile's Lineage.
   ag status                       Show whether Core is read-only, the Active profile, Lineage, Edit worktree,
                                   protection, and symlinks.
   ag setup                        Name the Active profile's setup skill, or print the prompt to create it.
+                                  A clean profile needs no setup.
   ag owner <path>                 Print the store path, the branch that owns it, and where to edit it.
                                   A relative path is resolved from the current directory.
   ag edit <branch>                Switch the Edit worktree to a branch.
@@ -199,7 +202,7 @@ function stripComment(line) {
 }
 
 function parseProfileYaml(content, label) {
-  const config = { parent: null, runtimes: null, localFiles: [] };
+  const config = { parent: null, clean: false, localFiles: [] };
 
   for (const rawLine of lines(content)) {
     const line = stripComment(rawLine);
@@ -216,17 +219,20 @@ function parseProfileYaml(content, label) {
     if (key === "parent") {
       assertParentName(value.trim(), label);
       config.parent = value.trim();
-    } else if (key === "runtimes" || key === "local-files") {
+    } else if (key === "clean") {
+      if (!["true", "false"].includes(value.trim())) {
+        throw new Error(`${label}: clean must be true or false`);
+      }
+      config.clean = value.trim() === "true";
+    } else if (key === "local-files") {
       const list = parseInlineList(value);
       if (!list) {
         throw new Error(`${label}: ${key} must be an inline list like [a, b]`);
       }
-      if (key === "runtimes") {
-        config.runtimes = list;
-      } else {
-        list.forEach((file) => assertLocalFile(file, label));
-        config.localFiles = list;
-      }
+      list.forEach((file) => assertLocalFile(file, label));
+      config.localFiles = list;
+    } else if (key === "runtimes") {
+      throw new Error(`${label}: delete the runtimes line. Every profile links into every coding agent.`);
     } else {
       throw new Error(`${label}: unknown key "${key}"`);
     }
@@ -250,10 +256,10 @@ function assertLocalFile(file, label) {
   }
 }
 
-function serializeProfileYaml({ parent, runtimes, localFiles }) {
+function serializeProfileYaml({ parent, clean, localFiles }) {
   const lines = [`parent: ${parent}`];
-  if (runtimes) {
-    lines.push(`runtimes: [${runtimes.join(", ")}]`);
+  if (clean) {
+    lines.push("clean: true");
   }
   if (localFiles.length) {
     lines.push(`local-files: [${localFiles.join(", ")}]`);
@@ -313,7 +319,7 @@ function parseRuntimesYaml(content) {
 
     let match = line.match(/^([A-Za-z0-9_-]+):$/);
     if (match) {
-      runtime = { home: null, targets: {}, linkExt: {} };
+      runtime = { home: null, readsStoreSkills: false, targets: {}, linkExt: {} };
       runtimes[match[1]] = runtime;
       section = null;
       continue;
@@ -325,6 +331,13 @@ function parseRuntimesYaml(content) {
     match = line.match(/^  home:\s*(\S+)$/);
     if (match) {
       runtime.home = match[1];
+      section = null;
+      continue;
+    }
+
+    match = line.match(/^  reads-store-skills:\s*(true|false)$/);
+    if (match) {
+      runtime.readsStoreSkills = match[1] === "true";
       section = null;
       continue;
     }
@@ -370,35 +383,39 @@ function loadRuntimes() {
   return parseRuntimesYaml(readFileSync(RUNTIMES_FILE, "utf8"));
 }
 
-function sourcesFor(kind, chain) {
+function sourcesFor(kind, chain, { clean, readsStoreSkills }) {
+  const profileSources = chain.map((profile) => `profiles/${profile}/artifacts/${kind}-profile-me`);
+  if (kind === "instructions") {
+    return profileSources;
+  }
   return [
-    ...(kind === "skills" ? ["skills"] : []),
-    `artifacts/${kind}-store-me`,
-    ...chain.map((profile) => `profiles/${profile}/artifacts/${kind}-profile-me`),
+    ...(kind === "skills" && !readsStoreSkills ? ["skills"] : []),
+    ...(clean ? [] : [`artifacts/${kind}-store-me`]),
+    ...profileSources,
   ];
+}
+
+// The instructions target is the agent home itself, which also holds the agent's own files and links.
+// There ag sync touches only the instruction file names.
+function manages(link, name) {
+  return link.kind !== "instructions" || INSTRUCTION_FILES.some((file) => file.toLowerCase() === name.toLowerCase());
 }
 
 function linkPlan(profile) {
   const chain = lineage(profile);
   const runtimes = loadRuntimes();
-  const selected = readProfileConfig(profile).runtimes ?? Object.keys(runtimes);
+  const { clean } = readProfileConfig(profile);
 
-  return selected.map((name) => {
-    const runtime = runtimes[name];
-    if (!runtime) {
-      throw new Error(`Profile "${profile}" uses unknown runtime "${name}"`);
-    }
-    return {
-      name,
-      home: runtime.home,
-      links: KINDS.filter((kind) => runtime.targets[kind]).map((kind) => ({
-        kind,
-        sources: sourcesFor(kind, chain),
-        target: runtime.targets[kind],
-        linkExt: runtime.linkExt[kind],
-      })),
-    };
-  });
+  return Object.entries(runtimes).map(([name, runtime]) => ({
+    name,
+    home: runtime.home,
+    links: KINDS.filter((kind) => runtime.targets[kind]).map((kind) => ({
+      kind,
+      sources: sourcesFor(kind, chain, { clean, readsStoreSkills: runtime.readsStoreSkills }),
+      target: runtime.targets[kind],
+      linkExt: runtime.linkExt[kind],
+    })),
+  }));
 }
 
 const OS_METADATA = new Set(["desktop.ini", "thumbs.db"]);
@@ -417,7 +434,7 @@ function linkNameFor(name, sourcePath, linkExt) {
   return name.replace(/(\.[^.]+)?$/, linkExt);
 }
 
-function collectArtifacts(sources, { quiet = false, linkExt } = {}) {
+function collectArtifacts(sources, { quiet = false, kind, linkExt } = {}) {
   const artifacts = new Map();
   // Keyed by lower case, because macOS and Windows treat Foo and foo as one file.
   const sourceOf = new Map();
@@ -436,6 +453,9 @@ function collectArtifacts(sources, { quiet = false, linkExt } = {}) {
     existingSourceCount += 1;
 
     for (const name of listArtifacts(sourceDir)) {
+      if (kind === "instructions" && !INSTRUCTION_FILES.includes(name)) {
+        throw new Error(`${source}/${name}: an instructions folder holds only ${INSTRUCTION_FILES.join(" and ")}`);
+      }
       const sourcePath = resolve(sourceDir, name);
       const linkName = linkNameFor(name, sourcePath, linkExt);
       const key = linkName.toLowerCase();
@@ -453,7 +473,7 @@ function collectArtifacts(sources, { quiet = false, linkExt } = {}) {
   return { artifacts, existingSourceCount };
 }
 
-function removeSymlinks(targetDir) {
+function removeSymlinks(link, targetDir) {
   if (!existsSync(targetDir)) {
     return [];
   }
@@ -462,7 +482,7 @@ function removeSymlinks(targetDir) {
 
   for (const name of readdirSync(targetDir)) {
     const entryPath = join(targetDir, name);
-    if (lstatSync(entryPath).isSymbolicLink()) {
+    if (manages(link, name) && lstatSync(entryPath).isSymbolicLink()) {
       removed.push(entryPath);
       if (!dryRun) {
         unlinkSync(entryPath);
@@ -485,7 +505,7 @@ function findRealEntries(mappings) {
     const names = new Set([...artifacts.keys()].map((name) => name.toLowerCase()));
     for (const name of listArtifacts(targetDir)) {
       const path = join(targetDir, name);
-      if (lstatSync(path).isSymbolicLink()) {
+      if (!manages(link, name) || lstatSync(path).isSymbolicLink()) {
         continue;
       }
       (names.has(name.toLowerCase()) ? blockers : unmanaged).push({ path, kind: link.kind });
@@ -584,6 +604,7 @@ function planMappings(plan) {
 
     for (const link of runtime.links) {
       const { artifacts, existingSourceCount } = collectArtifacts(link.sources, {
+        kind: link.kind,
         linkExt: link.linkExt,
       });
       if (existingSourceCount === 0) {
@@ -605,8 +626,8 @@ function planMappings(plan) {
   return { mappings, runtimeCount: runtimeNames.size };
 }
 
-function syncMapping({ targetDir, artifacts }) {
-  const removedLinks = removeSymlinks(targetDir);
+function syncMapping({ link, targetDir, artifacts }) {
+  const removedLinks = removeSymlinks(link, targetDir);
   for (const entryPath of removedLinks) {
     log(dryRun ? "info" : "removed", `symlink ${entryPath}`);
   }
@@ -709,7 +730,7 @@ function findStaleSymlinks(profile) {
     for (const link of runtime.links) {
       const { artifacts, existingSourceCount } = collectArtifacts(
         link.sources,
-        { quiet: true, linkExt: link.linkExt },
+        { quiet: true, kind: link.kind, linkExt: link.linkExt },
       );
       if (existingSourceCount === 0) {
         continue;
@@ -720,7 +741,7 @@ function findStaleSymlinks(profile) {
       if (existsSync(targetDir)) {
         for (const name of readdirSync(targetDir)) {
           const entryPath = join(targetDir, name);
-          if (lstatSync(entryPath).isSymbolicLink()) {
+          if (manages(link, name) && lstatSync(entryPath).isSymbolicLink()) {
             actual.set(name, readlinkSync(entryPath));
           }
         }
@@ -1180,6 +1201,10 @@ function setupPrompt(profile) {
 
 function runSetup() {
   const profile = readActiveProfile();
+  if (readProfileConfig(profile).clean) {
+    console.log(`The ${profile} profile needs no setup.`);
+    return;
+  }
   if (existsSync(join(STORE_ROOT, setupSkillPath(profile)))) {
     console.log(`Ask your agent to run the setup-${profile} skill to configure the ${profile} profile.`);
     return;
@@ -1189,7 +1214,7 @@ function runSetup() {
 }
 
 function parseNewArgs(args) {
-  const options = { name: null, from: null, protect: false };
+  const options = { name: null, from: null, protect: false, clean: false };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--from") {
@@ -1197,6 +1222,8 @@ function parseNewArgs(args) {
       index += 1;
     } else if (arg === "--protect") {
       options.protect = true;
+    } else if (arg === "--clean") {
+      options.clean = true;
     } else if (!options.name && !arg.startsWith("--")) {
       options.name = arg;
     } else {
@@ -1207,10 +1234,13 @@ function parseNewArgs(args) {
 }
 
 function runNew(args) {
-  const { name, from, protect } = parseNewArgs(args);
+  const { name, from, protect, clean } = parseNewArgs(args);
   assertProfileName(name);
   if (name === CORE_BRANCH) {
     throw new Error(`"${CORE_BRANCH}" is the Core branch, not a profile name.`);
+  }
+  if (clean && from !== null) {
+    throw new Error(`A clean profile is created from ${CORE_BRANCH}. Leave out --from.`);
   }
   if (from !== null) {
     assertProfileName(from);
@@ -1252,7 +1282,7 @@ function runNew(args) {
   mkdirSync(profileDir, { recursive: true });
   writeFileSync(
     join(profileDir, "profile.yaml"),
-    serializeProfileYaml({ parent, runtimes: parentConfig?.runtimes ?? null, localFiles }),
+    serializeProfileYaml({ parent, clean, localFiles }),
   );
   for (const kind of KINDS) {
     const kindDir = join(profileDir, "artifacts", `${kind}-profile-me`);

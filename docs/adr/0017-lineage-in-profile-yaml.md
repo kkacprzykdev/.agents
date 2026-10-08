@@ -4,15 +4,16 @@ Each profile has a committed `profiles/<name>/profile.yaml`:
 
 ```yaml
 parent: default
-runtimes: [cursor, claude]
 local-files: [.env, .env.outputs]
 ```
 
 - `parent` names the one Parent profile, or `main` for a Root profile. `ag` follows it to build the Lineage, at any depth.
-- `runtimes` lists the runtime mappings the profile uses. Without it, the profile uses every mapping in `sync/runtimes.yaml`.
 - `local-files` lists the profile's files that are never committed, relative to its folder.
+- `clean: true` makes a Clean profile, which links no store artifacts. `ag` reads it from the Active profile only. `ag new <name> --clean` writes `parent: main` and `clean: true`, so the profile links nothing into any coding agent.
 
-`ag new` writes the file. With `--from`, it copies the parent's `runtimes` and `local-files`, and copies those local files from the parent's folder.
+`ag new` writes the file. With `--from`, it copies the parent's `local-files`, and copies those local files from the parent's folder.
+
+Every profile links into every Runtime mapping in `sync/runtimes.yaml` (ADR 0018). A `profile.yaml` with a `runtimes` line fails, and the message says to delete the line.
 
 ## Linking
 
@@ -27,3 +28,4 @@ Local files must stay out of git on every branch, including branches that carry 
 - **Reading the Lineage from git history:** merges make it ambiguous which branch is the parent.
 - **Child overrides parent on a name collision:** an agent reading one profile's files could not tell which artifact is in force.
 - **Gitignore lines per profile:** a branch without the profile's ignore rules would show its local files as untracked.
+- **A per-profile runtimes list:** no profile used it. A profile that dropped a coding agent from its list also left its old links behind in that coding agent.

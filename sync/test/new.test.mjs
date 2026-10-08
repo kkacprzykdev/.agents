@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { createDefault, createWorld, fails, ok } from "./world.mjs";
 
@@ -13,7 +14,7 @@ test("ag new from main writes the skeleton, commits, pushes, and links store art
   ok(world.ag(["new", "default"]));
 
   assert.equal(world.read("profiles/default/profile.yaml"), "parent: main\n");
-  for (const kind of ["skills", "commands", "rules", "subagents"]) {
+  for (const kind of ["skills", "commands", "rules", "subagents", "instructions"]) {
     assert.ok(world.exists(`profiles/default/artifacts/${kind}-profile-me/.gitkeep`));
   }
   assert.equal(world.read("profiles/.env.active"), "ACTIVE_PROFILE=default\n");
@@ -79,6 +80,30 @@ test("ag new refuses before creating anything when there is no origin remote", (
 
   assert.match(fails(world.ag(["new", "child", "--from", "default"])), /error: no origin remote/);
   assert.equal(world.git(world.store, "branch", "--list", "child"), "");
+});
+
+test("ag new --clean creates a profile that links nothing, not even store artifacts", () => {
+  createDefault(world);
+  assert.ok(world.linkTarget(".cursor/rules/store-rule.mdc"));
+
+  ok(world.ag(["new", "clean", "--clean"]));
+
+  assert.equal(world.read("profiles/clean/profile.yaml"), "parent: main\nclean: true\n");
+  assert.ok(world.originHasBranch("clean"));
+  for (const target of [".cursor/rules", ".cursor/skills", ".claude/rules", ".claude/skills"]) {
+    assert.deepEqual(readdirSync(join(world.home, target)), [], target);
+  }
+  assert.match(ok(world.ag(["status"])), /Symlinks: +up to date/);
+});
+
+test("ag new --clean refuses --from, because a clean profile starts from main", () => {
+  createDefault(world);
+
+  assert.match(
+    fails(world.ag(["new", "clean", "--clean", "--from", "default"])),
+    /A clean profile is created from main\. Leave out --from\./,
+  );
+  assert.equal(world.git(world.store, "branch", "--list", "clean"), "");
 });
 
 test("ag new --protect keeps the new branch local", () => {
