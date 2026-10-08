@@ -22,6 +22,7 @@ test("ag sync stops on a name collision within the Lineage", () => {
   createDefault(world);
   ok(world.ag(["new", "child", "--from", "default"]));
   world.write("profiles/child/artifacts/rules-profile-me/default-rule.mdc", "copy\n");
+  world.git(world.store, "add", "-A");
 
   assert.match(fails(world.ag(["sync"])), /Collision: "default-rule\.mdc"/);
 });
@@ -43,6 +44,7 @@ test("ag sync checks every runtime before it changes any, and lists every Blocke
   createDefault(world);
   world.write("profiles/default/artifacts/rules-profile-me/new-rule.mdc", "new rule\n");
   world.write("profiles/default/artifacts/skills-profile-me/new-skill/SKILL.md", "new skill\n");
+  world.git(world.store, "add", "-A");
   writeFileSync(join(world.home, ".claude/rules/new-rule.md"), "real file\n");
   world.write("new-skill/SKILL.md", "real folder\n", join(world.home, ".claude/skills"));
 
@@ -100,6 +102,7 @@ test("ag sync refuses a profile.yaml with a runtimes line and names the line to 
 test("ag sync treats names that differ only in letter case as a collision", () => {
   createDefault(world);
   world.write("artifacts/rules-store-me/Default-Rule.mdc", "store copy\n");
+  world.git(world.store, "add", "-A");
 
   assert.match(fails(world.ag(["sync"])), /Collision: "default-rule\.mdc"/i);
 });
@@ -113,6 +116,35 @@ test("ag sync does not link desktop.ini or Thumbs.db", () => {
 
   assert.equal(world.exists("desktop.ini", join(world.home, ".cursor/rules")), false);
   assert.equal(world.exists("Thumbs.db", join(world.home, ".cursor/rules")), false);
+});
+
+test("ag sync does not link an artifact git does not track, and names it", () => {
+  createDefault(world);
+  world.write("profiles/default/artifacts/rules-profile-me/draft-rule.mdc", "draft\n");
+
+  const output = ok(world.ag(["sync"]));
+
+  assert.match(
+    output,
+    /git does not track them:\n  profiles\/default\/artifacts\/rules-profile-me\/draft-rule\.mdc\n/,
+  );
+  assert.equal(world.exists("draft-rule.mdc", join(world.home, ".cursor/rules")), false);
+});
+
+test("ag use does not link a skill folder that git left behind with only ignored files", () => {
+  createDefault(world);
+  world.write("skills/ghost/SKILL.md", "ghost\n");
+  world.commitAll(world.store, "Add a third-party skill");
+  world.write("skills/ghost/.DS_Store", "");
+  ok(world.ag(["push"]));
+  ok(world.ag(["new", "bare", "--clean"]));
+
+  const output = ok(world.ag(["use", "bare"]));
+
+  assert.equal(world.exists("skills/ghost/.DS_Store"), true);
+  assert.equal(world.exists("ghost", join(world.home, ".cursor/skills")), false);
+  assert.equal(world.exists("ghost", join(world.home, ".claude/skills")), false);
+  assert.match(output, /hold only ignored files:\n  ~\/\.agents\/skills\/ghost\n/);
 });
 
 // Windows ignores chmod on folders, and root ignores folder permissions.

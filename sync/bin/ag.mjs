@@ -423,10 +423,86 @@ function linkPlan(profile) {
 
 const OS_METADATA = new Set(["desktop.ini", "thumbs.db"]);
 
-function listArtifacts(sourceDir) {
-  return readdirSync(sourceDir).filter(
+function visibleEntries(dir) {
+  return readdirSync(dir).filter(
     (name) => !name.startsWith(".") && !OS_METADATA.has(name.toLowerCase()),
   );
+}
+
+let gitPaths = null;
+
+// Store paths git tracks, and untracked paths it does not ignore. Read once per sync.
+function storeGitPaths() {
+  if (!gitPaths) {
+    const list = (args) => git(["ls-files", "-z", ...args]).out.split("\0").filter(Boolean);
+    gitPaths = {
+      tracked: list([]),
+      untracked: list(["--others", "--exclude-standard"]),
+    };
+  }
+  return gitPaths;
+}
+
+function topEntries(paths, sourceDir) {
+  const prefix = `${relative(STORE_ROOT, sourceDir).split(sep).join("/")}/`;
+  return new Set(
+    paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length).split("/")[0]),
+  );
+}
+
+// Only an entry git tracks on the current branch is an artifact. A branch switch leaves behind
+// a folder that holds ignored files, such as .DS_Store, and that folder must not come back as a link.
+function readSource(sourceDir) {
+  const { tracked, untracked } = storeGitPaths();
+  const trackedNames = topEntries(tracked, sourceDir);
+  const untrackedNames = topEntries(untracked, sourceDir);
+  const result = { artifacts: [], untracked: [], leftovers: [] };
+  for (const name of visibleEntries(sourceDir)) {
+    if (trackedNames.has(name)) {
+      result.artifacts.push(name);
+    } else if (untrackedNames.has(name)) {
+      result.untracked.push(name);
+    } else if (statSync(join(sourceDir, name)).isDirectory()) {
+      result.leftovers.push(name);
+    }
+  }
+  return result;
+}
+
+// skills/ is always checked, because a coding agent with reads-store-skills sees a leftover there without a link.
+function reportSkippedEntries(plan) {
+  const sources = new Set(["skills", ...plan.flatMap((runtime) => runtime.links.flatMap((link) => link.sources))]);
+  const untracked = [];
+  const leftovers = [];
+  for (const source of sources) {
+    const sourceDir = resolve(STORE_ROOT, source);
+    if (!existsSync(sourceDir)) {
+      continue;
+    }
+    const entries = readSource(sourceDir);
+    untracked.push(...entries.untracked.map((name) => `${source}/${name}`));
+    leftovers.push(...entries.leftovers.map((name) => `${source}/${name}`));
+  }
+  if (untracked.length) {
+    log(
+      "warn",
+      [
+        "ag sync does not link these entries, because git does not track them:",
+        ...untracked.map((path) => `  ${path}`),
+        "Commit each one you want linked, then run ag sync again.",
+      ].join("\n"),
+    );
+  }
+  if (leftovers.length) {
+    log(
+      "warn",
+      [
+        "These folders are not on this branch. Git left them behind because they hold only ignored files:",
+        ...leftovers.map((path) => `  ${display(join(STORE_ROOT, path))}`),
+        "ag sync does not link them. Delete each one.",
+      ].join("\n"),
+    );
+  }
 }
 
 // With linkExt, a file link gets that extension (x.mdc -> x.md). Directory links keep their name.
@@ -455,7 +531,7 @@ function collectArtifacts(sources, { quiet = false, kind, linkExt } = {}) {
 
     existingSourceCount += 1;
 
-    for (const name of listArtifacts(sourceDir)) {
+    for (const name of readSource(sourceDir).artifacts) {
       if (kind === "instructions" && !INSTRUCTION_FILES.includes(name)) {
         throw new Error(`${source}/${name}: an instructions folder holds only ${INSTRUCTION_FILES.join(" and ")}`);
       }
@@ -506,7 +582,7 @@ function findRealEntries(mappings) {
       continue;
     }
     const names = new Set([...artifacts.keys()].map((name) => name.toLowerCase()));
-    for (const name of listArtifacts(targetDir)) {
+    for (const name of visibleEntries(targetDir)) {
       const path = join(targetDir, name);
       if (!manages(link, name) || lstatSync(path).isSymbolicLink()) {
         continue;
@@ -727,6 +803,8 @@ function runSync() {
   ensureHooksPath();
   excludeLineageLocalFiles(profile);
 
+  gitPaths = null;
+  reportSkippedEntries(plan);
   const { mappings, runtimeCount } = planMappings(plan);
   checkTargets(mappings, profile);
   for (const mapping of mappings) {
