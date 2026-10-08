@@ -49,7 +49,8 @@ Usage:
   ag status                       Show whether Core is read-only, the Active profile, Lineage, Edit worktree,
                                   protection, and symlinks.
   ag setup                        Name the Active profile's setup skill, or print the prompt to create it.
-  ag owner <path>                 Print the branch that owns a store path, and where to edit it.
+  ag owner <path>                 Print the store path, the branch that owns it, and where to edit it.
+                                  A relative path is resolved from the current directory.
   ag edit <branch>                Switch the Edit worktree to a branch.
   ag push                         Push the branches of ~/.agents and the Edit worktree, except local-only ones.
   ag update                       Fast-forward main from upstream if there is one, push main if needed,
@@ -1509,6 +1510,7 @@ function runOwner(input) {
   if (owner === CORE_BRANCH && hasRemote(UPSTREAM)) {
     refuseCoreEdit(rel, `${rel || "."} is Core, which is read-only in this store (see above).`);
   }
+  console.log(`Path:     ${rel || "."}`);
   console.log(`Branch:   ${owner}`);
   if (currentBranch() === owner) {
     console.log(`Checkout: ${display(STORE_ROOT)}`);
@@ -1620,7 +1622,7 @@ function runProtect(profile) {
 
 function runStatus() {
   const branch = currentBranch() || "(detached)";
-  console.log(`Store root:      ${STORE_ROOT}`);
+  console.log(`Store root:      ${display(STORE_ROOT)}`);
   console.log(`Branch:          ${branch}`);
   console.log(
     `Core:            ${hasRemote(UPSTREAM) ? `read-only, from ${remoteUrl(UPSTREAM)}` : "owned by this store"}`,

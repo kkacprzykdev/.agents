@@ -28,7 +28,7 @@ An artifact that a whole Lineage needs goes in the highest profile that needs it
 
 ## Which branch and checkout
 
-Before you edit a store file, run `ag owner <path>`. It prints the owning branch and the checkout.
+Before you edit a store file, run `ag owner <path>`. It prints the store path it resolved, the owning branch, and the checkout. Check the `Path:` line, because a relative path is resolved from the current directory.
 
 Every `ag` command reads `~/.agents` and `~/.agents-edit`, whatever directory it runs from, so its output means the same everywhere. Only `ag owner` uses the current directory, to resolve a relative path.
 

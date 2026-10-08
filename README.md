@@ -171,7 +171,7 @@ ag use <profile>                      # switch ~/.agents to the profile's branch
 ag sync [--dry-run]                   # recreate symlinks for the Active profile's Lineage
 ag status                             # whether Core is read-only, Active profile, Lineage, Edit worktree, protection, stale symlinks
 ag setup                              # name the Active profile's setup skill for your agent to run, or print the prompt to create it
-ag owner <path>                       # the branch that owns a store path, and where to edit it
+ag owner <path>                       # the resolved store path, the branch that owns it, and where to edit it
 ag edit <branch>                      # switch the Edit worktree to a branch
 ag push                               # push the branches of ~/.agents and ~/.agents-edit, except local-only ones
 ag update                             # fast-forward main from upstream if any, push main if needed, merge each Lineage branch with its parent, then sync
@@ -216,7 +216,7 @@ Ancestors are updated in `~/.agents-edit`. The Active profile's branch is update
 <details>
 <summary>See details</summary>
 
-Every store path has one owning branch. `ag owner <path>` prints it, with the checkout to edit:
+Every store path has one owning branch. `ag owner <path>` prints the store path it resolved, the owning branch, and the checkout to edit. A relative path is resolved from the current directory, so `profiles/default` typed in `~/.agents/sync` is `sync/profiles/default`, which belongs to `main`. The owning branch is decided like this:
 
 - `profiles/<name>`, and everything in it, belongs to branch `<name>`. A name with no branch is an error.
 - Other files directly in `profiles/`, such as `profiles/.env.active`, belong to the Active profile.

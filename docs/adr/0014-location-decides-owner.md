@@ -6,7 +6,7 @@ Where a file lives says which branch owns it:
 - `skills/` and `.skill-lock.json`: a third-party skills installer. A skill belongs to the highest branch in the Active profile's Lineage that contains it. A new skill, and the lock file, belong to the Active profile. A profile may still change an inherited skill on its own branch, for a change only it needs.
 - Everything else, including `artifacts/<kind>-store-me/`: Core, on `main`. Store artifacts are about editing `~/.agents`, documenting it, or running `ag`. Every profile links them.
 
-`ag owner <path>` applies these rules and names the checkout to edit: `~/.agents` when it holds the owning branch, the Edit worktree for any other. It reads the Active profile only for paths whose owner depends on it, so it answers `main` for Core paths even on a clone with no Active profile.
+`ag owner <path>` prints the store path it resolved, applies these rules, and names the checkout to edit: `~/.agents` when it holds the owning branch, the Edit worktree for any other. It reads the Active profile only for paths whose owner depends on it, so it answers `main` for Core paths even on a clone with no Active profile.
 
 Artifacts carry no visibility marker. Which profiles may be pushed is decided by push protection (ADR 0015), not by the artifact.
 

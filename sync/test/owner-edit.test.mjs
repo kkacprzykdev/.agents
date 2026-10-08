@@ -103,6 +103,23 @@ test("ag owner reports an unknown profile when origin cannot be reached", () => 
   assert.match(ok(world.ag(["owner", "profiles/default/x.md"])), /Branch:\s+default\n/);
 });
 
+test("ag owner prints the store path it resolved from the current directory", () => {
+  createDefault(world);
+
+  assert.match(
+    ok(world.ag(["owner", "profiles/default"], { cwd: join(world.store, "sync") })),
+    /^Path:\s+sync\/profiles\/default\nBranch:\s+main\n/,
+  );
+  assert.match(ok(world.ag(["owner", "profiles/default"])), /^Path:\s+profiles\/default\nBranch:\s+default\n/);
+  assert.match(ok(world.ag(["owner", world.store])), /^Path:\s+\.\nBranch:\s+main\n/);
+});
+
+test("ag status shows the store root as a ~ path", () => {
+  createDefault(world);
+
+  assert.match(ok(world.ag(["status"])), /^Store root:\s+~\/\.agents\n/);
+});
+
 test("ag owner names main for Core paths when there is no Active profile", () => {
   assert.match(
     ok(world.ag(["owner", "sync/bin/ag.mjs"])),
