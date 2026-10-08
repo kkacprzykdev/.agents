@@ -1,6 +1,6 @@
 # Agent Setup
 
-A canonical store (`~/.agents/`) of skills, rules, commands, and subagents, propagated to any configured coding agent runtime via symlinks. Tooling lives in `sync/`. Artifacts live in `profiles/`, except store artifacts in `artifacts/` and third-party skills in `skills/`, both at the store root.
+A canonical store (`~/.agents/`) of skills, rules, commands, and subagents, linked into the Agent home of every configured Coding agent via symlinks. Tooling lives in `sync/`. Artifacts live in `profiles/`, except store artifacts in `artifacts/` and third-party skills in `skills/`, both at the store root.
 
 ## Language
 
@@ -21,24 +21,28 @@ Fast-forward the Core branch to the Upstream store's Core branch, when there is 
 _Avoid_: Sync, rebase, pulling every ancestor into the Active profile
 
 **Runtime target**:
-An agent-specific directory (e.g. `~/.cursor/skills/`) that receives symlinks pointing into the canonical store. Created automatically if the agent home exists but the target subdirectory does not, with an info message.
+A folder in an Agent home (e.g. `~/.cursor/skills/`) that receives symlinks pointing into the canonical store. Created automatically if the Agent home exists but the target subdirectory does not, with an info message.
 _Avoid_: Destination, install location
 
 **Runtime mapping**:
-One runtime's entry in `sync/runtimes.yaml`: its agent home, the target folder for each artifact kind, and an optional link extension per kind. Core owns every runtime mapping. A profile only names the runtimes it uses.
+One Coding agent's entry in `sync/runtimes.yaml`: its Agent home, the target folder for each artifact kind, and an optional link extension per kind. Core owns every runtime mapping. A profile only names the runtimes it uses.
 _Avoid_: sync.yaml, a per-profile copy of the mappings
 
 **Link mapping**:
 One source list paired with one runtime target, worked out by `ag` for each artifact kind of a runtime. The sources are `skills/` (skills only), the kind's store artifacts, then each Lineage profile's `artifacts/<kind>-profile-me/`, from the top down. Missing sources are skipped. The mapping runs if any source directory exists.
 _Avoid_: Sync rule, path mapping
 
-**Agent**:
-A coding agent runtime with a home directory that receives symlinks. Agents are declared in `sync/runtimes.yaml`. Cursor and Claude Code are current examples, not a closed supported set. Codex, T3 Code, or another compatible runtime can be added as a new mapping. If an agent's home directory doesn't exist on the current machine, sync skips it with a warning.
-_Avoid_: IDE, client, provider, treating current mappings as the supported-agent list
+**Coding agent**:
+A tool such as Cursor or Claude Code whose Agent home receives symlinks. Each one is declared by a Runtime mapping in `sync/runtimes.yaml`. The configured coding agents are not a closed set: another compatible one is added with a new mapping. If a coding agent's Agent home doesn't exist on the current machine, sync skips it with a warning.
+_Avoid_: Agent (alone), runtime (in prose), IDE, client, provider, treating current mappings as the supported-agent list
+
+**Agent home**:
+The global folder of a Coding agent, such as `~/.cursor/`. It holds the Runtime targets. A project's own folders, such as a repository's `.cursor/`, are never agent homes, and `ag` never changes them.
+_Avoid_: Agent directory, config folder, user folder
 
 **Runtime support**:
-The verified artifact kinds and behaviors available in one Agent. Cursor currently has full coverage of this store. Claude currently has skills, commands, and rules. A Runtime mapping declares files to sync. It does not prove that the Agent understands their format or behavior.
-_Avoid_: Assuming runtime neutrality means feature parity, calling a mapped Agent fully supported without verification
+The artifact kinds that `ag sync` links into one Coding agent. A kind is mapped only after its format and behavior are verified in that agent. A Runtime mapping declares files to sync. It does not prove that the agent understands their format or behavior.
+_Avoid_: Fully supported, partially supported, primary runtime, assuming runtime neutrality means feature parity
 
 **Collision**:
 When two source directories contribute an entry with the same name to the same runtime target, sync aborts with an error. No silent overwrites. A child profile that needs a different artifact gives it a different name.
