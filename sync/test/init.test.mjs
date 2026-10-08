@@ -127,6 +127,22 @@ test("ag update refuses a main with commits of its own, then continues after the
   assert.equal(show(mine, "main:core.txt"), "upstream");
 });
 
+test("ag push refuses a main with commits of its own and pushes nothing", () => {
+  const mine = world.bareRepo("mine");
+  ok(world.ag(["init", mine]));
+  ok(world.ag(["new", "personal"]));
+  const before = world.git(world.base, "--git-dir", mine, "rev-parse", "main");
+  world.write("core.txt", "mine\n", world.edit);
+  world.commitAll(world.edit, "Change core.txt on my main");
+
+  const output = fails(world.ag(["push"]));
+
+  assert.match(output, /\w+ Change core\.txt on my main/);
+  assert.match(output, /git -C ~\/\.agents-edit reset --hard upstream\/main/);
+  assert.match(output, /then run ag push again/);
+  assert.equal(world.git(world.base, "--git-dir", mine, "rev-parse", "main"), before);
+});
+
 test("ag update refuses when only origin's main has commits of its own", () => {
   const mine = world.bareRepo("mine");
   ok(world.ag(["init", mine]));
