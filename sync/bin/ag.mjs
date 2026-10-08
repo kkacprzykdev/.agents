@@ -1550,7 +1550,7 @@ function refuseCoreEdit(rel, error) {
     ? `profiles/${profile}/artifacts/${storeArtifact[1]}-profile-me/${storeArtifact[2]}`
     : `profiles/${profile}/artifacts/<kind>-profile-me/`;
   console.log(`Core comes from the Upstream store, ${url}. Only ag update changes it in this store.`);
-  console.log(`- A file from your setup goes in a profile: ${profileTarget}`);
+  console.log(`- A profile artifact goes in a profile: ${profileTarget}`);
   console.log(`- For a change to ag, the docs, or the runtime mappings, open an issue on ${url}.`);
   console.log(`- To own Core in this store instead, run: git -C ${display(STORE_ROOT)} remote remove upstream`);
   console.log(`  ag update then stops taking Core from ${url}.`);
