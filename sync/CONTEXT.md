@@ -17,7 +17,7 @@ Remove every symlink in each runtime target directory, then recreate symlinks fo
 _Avoid_: Pull, update, deploy
 
 **Update**:
-Fast-forward the Core branch to the Upstream store's Core branch, when there is an Upstream store. A Core branch with commits of its own stops the update. Then merge each branch of the Active profile's Lineage with its own parent, from the top down, then sync. Branches that can be pushed pull themselves first and are pushed when they are ahead of `origin`.
+Fast-forward the Core branch to the Upstream store's Core branch, when there is an Upstream store. A Core branch with commits of its own stops the update. When `sync/bin/ag.mjs` on the Core branch differs from the running `ag`, the rest of the update runs in a new process from that file. Then merge each branch of the Active profile's Lineage with its own parent, from the top down, then sync. Branches that can be pushed pull themselves first and are pushed when they are ahead of `origin`.
 _Avoid_: Sync, rebase, pulling every ancestor into the Active profile
 
 **Runtime target**:

@@ -107,6 +107,28 @@ test("ag update fast-forwards upstream main, pushes it to origin, and brings it 
   assert.equal(world.git(world.edit, "branch", "--show-current"), "main");
 });
 
+test("ag update continues with the merged ag when Core changes that file", () => {
+  const mine = world.bareRepo("mine");
+  ok(world.ag(["init", mine]));
+  ok(world.ag(["new", "personal"]));
+
+  // The fixture commits past the hook, so this test does not run the whole suite inside itself.
+  const maintainer = join(world.base, "maintainer");
+  world.git(world.base, "clone", "-q", world.origin, maintainer);
+  const updated = `${world.read("sync/bin/ag.mjs", maintainer)}\n// merged ag\n`;
+  world.write("sync/bin/ag.mjs", updated, maintainer);
+  world.git(maintainer, "add", "-A");
+  world.git(maintainer, "commit", "-q", "--no-verify", "-m", "Change ag");
+  world.git(maintainer, "push", "-q", "origin", "main");
+
+  const output = ok(world.ag(["update"]));
+
+  assert.equal(output.split("Continuing this update with the ag that was just merged.").length - 1, 1);
+  assert.equal(world.read("sync/bin/ag.mjs"), updated);
+  assert.equal(world.git(world.edit, "branch", "--show-current"), "main");
+  assert.doesNotMatch(ok(world.ag(["update"])), /Continuing this update/);
+});
+
 test("ag update refuses a main with commits of its own, then continues after the printed reset", () => {
   const mine = world.bareRepo("mine");
   ok(world.ag(["init", mine]));

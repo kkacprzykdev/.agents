@@ -1129,6 +1129,29 @@ function pushCoreIfAhead() {
   pushBranch(CORE_BRANCH, EDIT_WORKTREE);
 }
 
+// The running process keeps the ag it started with. Once main holds a different ag, that old
+// copy can reject a config the new ag understands, such as a new coding agent. The new file
+// finishes the update instead.
+function continueWithMergedAg() {
+  if (process.env.AG_UPDATE_REEXEC === "1") {
+    return false;
+  }
+  const current = fileURLToPath(import.meta.url);
+  const next = join(EDIT_WORKTREE, "sync", "bin", "ag.mjs");
+  if (!existsSync(next) || readFileSync(current).equals(readFileSync(next))) {
+    return false;
+  }
+  log("info", "Continuing this update with the ag that was just merged.");
+  const result = spawnSync(process.execPath, [next, "update"], {
+    stdio: "inherit",
+    env: { ...process.env, AG_UPDATE_REEXEC: "1" },
+  });
+  if ((result.status ?? 1) !== 0) {
+    process.exit(result.status ?? 1);
+  }
+  return true;
+}
+
 function runUpdate() {
   assertOrigin();
   const active = activeBranch();
@@ -1137,6 +1160,9 @@ function runUpdate() {
   const chain = lineage(active);
   fastForwardUpstreamCore();
   pushCoreIfAhead();
+  if (continueWithMergedAg()) {
+    return;
+  }
 
   for (let index = 0; index < chain.length; index += 1) {
     const branch = chain[index];
