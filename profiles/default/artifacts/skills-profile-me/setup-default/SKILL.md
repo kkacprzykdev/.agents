@@ -27,7 +27,7 @@ The templates are the source of truth for keys. Key order in a template is the o
 - **Clone of `<url>`:** the user clones the repository, then gives the path to its root.
 - **Untagged:** the user gives the value.
 
-The value in the template is an example, or the recommended value for the Output map.
+Values in `.env.example` are empty. Values in `.env.outputs.example` are the recommended Output map.
 
 `ag new --from` may have copied these files from the parent profile, so they may already hold correct values. Never change a user-given value without the user's answer. Never change `profiles/.env.active`. That file is committed on each profile branch, and `ag use <profile>` switches it.
 
@@ -35,7 +35,7 @@ The value in the template is an example, or the recommended value for the Output
 
 ## Messages
 
-Keep every message terse: the question, plus only what the user needs to answer it. One question per message, unless a step says otherwise. Show a format or example only after a reply fails to match it.
+Keep every message terse: the question, plus only what the user needs to answer it. One question per message, unless a step says otherwise. Show a format only after a reply fails to match it.
 
 ## Steps
 
@@ -51,7 +51,7 @@ Keep every message terse: the question, plus only what the user needs to answer 
 5. **For each user-given key that is missing**, in template order:
    - **Clone of `<url>`:** first message: ask the user to clone `<url>`, showing that repository's commands from the `## Tools` section of `profiles/default/README.md`, and to reply when done. Second message: ask for the absolute path to the clone root. Accept it only when `git -C <path> rev-parse --show-toplevel` prints that same directory.
    - **Untagged:** ask for the value in one message, naming the key and its meaning.
-6. Accept a reply only when it is a single non-empty line that matches the format. Otherwise show the format and example value and wait. The user's reply is the only source of a user-given value.
+6. Accept a reply only when it is a single non-empty line that matches the format. Otherwise show the format and wait. The user's reply is the only source of a user-given value.
 7. Write each `KEY=value` line to `profiles/<name>/.env` right away. Keep keys the template does not list. Do not copy the template comments.
 
 ### Output map (`profiles/<name>/.env.outputs`)
