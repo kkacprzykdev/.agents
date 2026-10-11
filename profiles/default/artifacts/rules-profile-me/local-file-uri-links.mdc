@@ -23,7 +23,7 @@ Build the target:
 
 `target = HOME_FILE_URI + absolute_path` after stripping `HOME_PATH` from the front of the absolute path.
 
-With `HOME_PATH=/Users/me` and `HOME_FILE_URI=file:///Users/me`, the file `/Users/me/vault/notes.md` becomes `file:///Users/me/vault/notes.md`. The home directory appears exactly once. `file:///Users/me/Users/me/…` means `HOME_PATH` was not stripped.
+With `HOME_PATH=/Users/me` and `HOME_FILE_URI=file:///Users/me`, the file `/Users/me/vault/notes.md` becomes `file:///Users/me/vault/notes.md`. The home directory appears exactly once. `file:///Users/me/Users/me/…` means `HOME_PATH` was not stripped. On Windows, write the remainder with `/` separators: `C:\Users\me\vault\notes.md` becomes `file:///C:/Users/me/vault/notes.md`.
 
 In templates, `{HOME_FILE_URI}` means that prefix after substitution. Never leave a literal username in a skill, command, or rule.
 
