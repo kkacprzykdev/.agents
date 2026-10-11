@@ -15,8 +15,9 @@ The prompt asks an agent to research the profile and write a skill that:
 
 - configures everything a child of the profile needs
 - shows the current value of each file `ag new` already copied, and asks the human whether it is correct
-- checks, on every run, that `local-files` in `profile.yaml` lists every local file the profile uses, and runs `ag sync` after it changes the list
-- says that no extra setup is required, when nothing needs configuring
+- checks, on every run, that `local-files` in `profile.yaml` lists every local file the profile uses
+- runs `ag sync` at the end of every run, and finishes only when `ag status` reports the symlinks up to date, so the profile is usable right away
+- ends with one of two fixed messages: setup complete, or no extra setup required
 
 ## Considered Options
 
