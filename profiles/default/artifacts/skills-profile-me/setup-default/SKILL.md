@@ -68,4 +68,8 @@ Keep every message terse: the question, plus only what the user needs to answer 
 
 ### Finish
 
-14. Show the final contents of every file this run created or changed. If every file was already correct, say that no extra setup is required.
+14. Run `ag sync`, then `ag status`. Setup is done only when `ag status` prints `Symlinks:        up to date`. Otherwise show its output, and stop without a final message.
+15. Show the final contents of every file this run created or changed.
+16. End with exactly one of these messages, word for word, with `<name>` filled in:
+    - **The run created or changed a file:** `Setup of the <name> profile is complete, and its artifacts are synced to every coding agent. You can use it now.`
+    - **Every file was already correct:** `The <name> profile needs no extra setup, and its artifacts are synced to every coding agent. You can use it now.`
