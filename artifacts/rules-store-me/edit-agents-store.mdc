@@ -16,6 +16,8 @@ Canonical store: `~/.agents/` (see `~/.agents/README.md`). `ag sync` symlinks th
 
 Keep every repository-wide update runtime-neutral. Put runtime-specific behavior in a clearly scoped artifact or mapping only when that behavior genuinely depends on that runtime.
 
+For the store's own issue tracker, triage labels, and domain-doc layout, read `docs/agents/` in the store checkout (`~/.agents` or `~/.agents-edit`).
+
 Paths below are relative to the store root.
 
 | Kind | Write here |

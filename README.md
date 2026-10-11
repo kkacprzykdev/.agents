@@ -176,7 +176,7 @@ Each profile lives on its own branch, named after the profile. A Root profile is
 ```
 ~/.agents/
 ├── artifacts/           # store artifacts: skills-, commands-, rules-, subagents-store-me/, linked by every profile
-├── docs/                # Core ADRs and runtime support notes
+├── docs/                # Core ADRs, runtime support notes, and agent-skill config
 ├── sync/                # the ag tool
 │   ├── bin/ag.mjs
 │   ├── runtimes.yaml    # runtime mappings: agent homes and target folders
