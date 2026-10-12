@@ -223,6 +223,8 @@ ag push                               # push the branches of ~/.agents and ~/.ag
 ag update                             # fast-forward main from upstream if any, push main if needed, merge each Lineage branch with its parent, then sync
 ag skills add <url> [--skill <name>]  # install third-party skills, commit, push, update
 ag protect <profile>                  # block pushes that contain the profile's commits
+ag issue bug|idea --title <title> --body-file <path> [--yes]
+                                      # file a Core issue on the store that owns Core; without --yes, only a preview
 ```
 
 Every `ag` command reads `~/.agents` and `~/.agents-edit`, from any directory, so its output does not depend on where it runs. Only `ag owner` uses the current directory, to resolve a relative path.
@@ -257,6 +259,8 @@ With `--from <parent>`, the parent must have a setup skill at `profiles/<parent>
 
 Ancestors are updated in `~/.agents-edit`. The Active profile's branch is updated last, in `~/.agents`. The Edit worktree is left on `main`, then `ag sync` runs. When every branch is up to date, nothing is committed or pushed. On a conflict, it shows git's own output, then one line naming the checkout and branch, and stops. Resolve the conflict there, commit, and run `ag update` again. It continues where it stopped.
 
+**`ag issue bug|idea`** files a Core issue on the store that owns Core: the `upstream` remote's repository when there is one, otherwise `origin`. It refuses a remote that is not on GitHub. The body file must use the headings of the matching issue form, and only those. A bug has `### What happened`, `### What you expected`, and an optional `### OS`. An idea has `### Problem` and `### Proposed change`. Without `--yes`, it prints the repository, title, and body, and files nothing. That repository may be public, so an agent shows the preview to you and adds `--yes` only after you approve it. With `--yes`, it refuses when `gh` is missing or not signed in. It adds the `bug` or `enhancement` label only when you can push to that repository, because GitHub keeps labels on a new issue only from someone with push access. An issue from anyone else gets `needs-triage` from the repository's workflow, and triage sets its category.
+
 </details>
 
 ## Editing the store
@@ -274,7 +278,7 @@ Every store path has one owning branch. `ag owner <path>` prints the store path 
 In a store with an Upstream store, Core is read-only, and `ag status` prints `Core: read-only, from <url>`. `ag owner` refuses every path that belongs to `main`, and `ag edit main` refuses too. `ag push` and `ag update` refuse while `main` has commits that `upstream/main` does not, and print how to reset it. The `pre-commit` hook rejects a raw `git commit` on `main`, and a commit on any other branch that stages a file outside `profiles/`, `skills/`, and `.skill-lock.json`. A commit that concludes a merge passes. The message of `ag owner` and `ag edit` says where the change goes instead:
 
 - A profile artifact goes in a profile, under `profiles/<profile>/artifacts/<kind>-profile-me/`.
-- A change to `ag`, the docs, or the runtime mappings goes in an issue on the Upstream store.
+- A change to `ag`, the docs, or the runtime mappings goes in a Core issue on the Upstream store, filed with `ag issue`.
 - To own Core yourself, run `git -C ~/.agents remote remove upstream`. `ag update` then stops taking Core updates.
 
 A store without an `upstream` remote owns its Core. `ag status` prints `Core: owned by this store`, and Core is edited on `main`.
@@ -392,5 +396,7 @@ Domain glossary: [`CONTEXT-MAP.md`](./CONTEXT-MAP.md). Decisions: [`docs/adr/`](
 <summary>See details</summary>
 
 Issues are welcome. Pull requests are not accepted for now.
+
+Ask your agent to file a Core issue with `ag issue bug` or `ag issue idea`. It finds this repository through your store's `upstream` remote and shows you the issue before it files it. To file one by hand, use the bug or idea form on this repository's [issues page](https://github.com/kkacprzykdev/.agents/issues/new/choose).
 
 </details>

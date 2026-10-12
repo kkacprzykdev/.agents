@@ -64,6 +64,11 @@ Usage:
   ag skills add <url> [--skill <name>]
                                   Install third-party skills into the Active profile, commit, push, update.
   ag protect <profile>            Block pushes that contain the profile's commits (once per clone).
+  ag issue bug|idea --title <title> --body-file <path> [--yes]
+                                  File a Core issue on the store that owns Core: the Upstream store, or this
+                                  store when it has none. Without --yes, only print a preview.
+                                  bug headings: ### What happened, ### What you expected, ### OS (optional).
+                                  idea headings: ### Problem, ### Proposed change.
 
 Store root:    ${STORE_ROOT}
 Edit worktree: ${EDIT_WORKTREE}
@@ -1707,7 +1712,7 @@ function refuseCoreEdit(rel, error) {
     : `profiles/${profile}/artifacts/<kind>-profile-me/`;
   console.log(`Core comes from the Upstream store, ${url}. Only ag update changes it in this store.`);
   console.log(`- A profile artifact goes in a profile: ${profileTarget}`);
-  console.log(`- For a change to ag, the docs, or the runtime mappings, open an issue on ${url}.`);
+  console.log("- For a change to ag, the docs, or the runtime mappings, file a Core issue: ag issue bug|idea");
   console.log(`- To own Core in this store instead, run: git -C ${display(STORE_ROOT)} remote remove upstream`);
   console.log(`  ag update then stops taking Core from ${url}.`);
   throw new Error(error);
@@ -1808,6 +1813,128 @@ function runSkillsAdd(args) {
   log("committed", `Add skill${names.length > 1 ? "s" : ""} ${label}`);
   pushBranch(currentBranch(), STORE_ROOT);
   runUpdate();
+}
+
+// The headings match what the issue forms in .github/ISSUE_TEMPLATE produce, so triage reads one shape.
+const ISSUE_KINDS = {
+  bug: { label: "bug", required: ["What happened", "What you expected"], optional: ["OS"] },
+  idea: { label: "enhancement", required: ["Problem", "Proposed change"], optional: [] },
+};
+const ISSUE_USAGE = "Usage: ag issue bug|idea --title <title> --body-file <path> [--yes]";
+
+function parseIssueArgs(args) {
+  const [kind, ...rest] = args;
+  if (!ISSUE_KINDS[kind]) {
+    throw new Error(ISSUE_USAGE);
+  }
+  const options = { kind, title: null, bodyFile: null, yes: false };
+  for (let index = 0; index < rest.length; index += 1) {
+    const arg = rest[index];
+    if (arg === "--yes") {
+      options.yes = true;
+    } else if ((arg === "--title" || arg === "--body-file") && rest[index + 1] !== undefined) {
+      options[arg === "--title" ? "title" : "bodyFile"] = rest[index + 1];
+      index += 1;
+    } else {
+      throw new Error(`Unexpected argument: ${arg}. ${ISSUE_USAGE}`);
+    }
+  }
+  if (!options.title?.trim() || !options.bodyFile) {
+    throw new Error(ISSUE_USAGE);
+  }
+  return options;
+}
+
+function readIssueBody(kind, bodyFile) {
+  const path = resolve(bodyFile);
+  if (!existsSync(path)) {
+    throw new Error(`No body file at ${path}`);
+  }
+  const body = readFileSync(path, "utf8").trim();
+  const { required, optional } = ISSUE_KINDS[kind];
+  const headings = [...body.matchAll(/^###[ \t]+(.+?)[ \t]*$/gm)].map((match) => match[1]);
+  const missing = required.filter((heading) => !headings.includes(heading));
+  const unknown = headings.filter((heading) => ![...required, ...optional].includes(heading));
+  if (missing.length || unknown.length) {
+    const shape = [...required, ...optional.map((heading) => `${heading} (optional)`)]
+      .map((heading) => `### ${heading}`)
+      .join(", ");
+    const problems = [
+      missing.length ? `missing ${missing.map((heading) => `### ${heading}`).join(", ")}` : null,
+      unknown.length ? `unknown ${unknown.map((heading) => `### ${heading}`).join(", ")}` : null,
+    ].filter(Boolean);
+    throw new Error(`The ${kind} body is ${problems.join("; ")}. Use these headings: ${shape}.`);
+  }
+  return body;
+}
+
+// Reads https, ssh, and scp-style remote URLs. A local path is not a GitHub repository.
+function githubRepo(url) {
+  const match = url.match(/^(?:https?:\/\/|ssh:\/\/)?(?:[^@/]+@)?([^/:]+)[:/]([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
+  if (!match || !match[1].includes(".") || existsSync(url)) {
+    throw new Error(`${url} is not a GitHub repository, so ag issue cannot file there.`);
+  }
+  const [, host, owner, repo] = match;
+  return { host, name: `${owner}/${repo}` };
+}
+
+// A Core issue goes to the store that owns Core: the Upstream store, or this store when it has none.
+function coreIssueTarget() {
+  const remote = hasRemote(UPSTREAM) ? UPSTREAM : "origin";
+  if (!hasRemote(remote)) {
+    throw new Error("no origin remote, so there is no issue tracker for Core issues.");
+  }
+  return { remote, ...githubRepo(remoteUrl(remote)) };
+}
+
+function assertGh() {
+  if (!toolAvailable("gh")) {
+    throw new Error("The GitHub CLI (gh) is not installed, so ag issue cannot file the issue. Install it, then run gh auth login.");
+  }
+  if (!toolAvailable("gh", ["auth", "status"])) {
+    throw new Error("gh is not signed in. Run gh auth login, then ag issue again.");
+  }
+}
+
+// GitHub keeps a label on a new issue only from someone with push access, so ag sends it only then.
+// Without it, the triage-label workflow marks the issue needs-triage and triage sets the category.
+function canPush(target) {
+  const result = runTool(
+    "gh",
+    ["api", `repos/${target.name}`, "--hostname", target.host, "--jq", ".permissions.push"],
+    { encoding: "utf8" },
+  );
+  return result.status === 0 && result.stdout.trim() === "true";
+}
+
+function runIssue(args) {
+  const { kind, title, bodyFile, yes } = parseIssueArgs(args);
+  const body = readIssueBody(kind, bodyFile);
+  const target = coreIssueTarget();
+  const owner = target.remote === UPSTREAM ? "the Upstream store" : "this store";
+
+  if (!yes) {
+    console.log(`Repository: ${target.host}/${target.name} (${owner}, which owns Core)`);
+    console.log(`Kind:       ${kind}`);
+    console.log(`Title:      ${title}`);
+    console.log("Body:");
+    console.log(body.replace(/^/gm, "  "));
+    console.log("");
+    console.log("Nothing was filed. The repository may be public, so check the body for private content.");
+    console.log("Show this preview to the user. After they approve it, run the same command with --yes.");
+    return;
+  }
+
+  assertGh();
+  const ghArgs = ["issue", "create", "-R", `${target.host}/${target.name}`, "--title", title, "--body-file", resolve(bodyFile)];
+  if (canPush(target)) {
+    ghArgs.push("--label", ISSUE_KINDS[kind].label);
+  }
+  const result = runTool("gh", ghArgs, { encoding: "utf8" });
+  if (result.status !== 0) {
+    throw new Error(`gh issue create failed: ${(result.stderr ?? "").trim()}`);
+  }
+  log("created", `${kind} issue ${result.stdout.trim().split("\n").pop().trim()}`);
 }
 
 function runProtect(profile) {
@@ -1929,6 +2056,9 @@ function main() {
       return;
     case "protect":
       runProtect(args[0]);
+      return;
+    case "issue":
+      runIssue(args);
       return;
     default:
       console.error(`error: unknown command "${command}"\n`);

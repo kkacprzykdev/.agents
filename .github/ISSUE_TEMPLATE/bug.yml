@@ -1,0 +1,25 @@
+name: Bug
+description: Something in ag, the docs, or the runtime mappings does not work. Agents file this with ag issue bug.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The command you ran and its output.
+    validations:
+      required: true
+  - type: textarea
+    id: what-you-expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS
+        - Linux
+        - Windows
