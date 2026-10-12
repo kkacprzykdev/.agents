@@ -18,6 +18,10 @@ _Avoid_: Base branch, Default profile, default branch (for the profile)
 The store a user's own store was cloned from. The user's Core branch fast-forwards to its Core branch. The user reads it and never pushes to it. In a store with an Upstream store, Core is read-only: only `ag update` changes its Core branch. A store that was not cloned from another one has no Upstream store and owns its Core.
 _Avoid_: upstream (alone), fork, template, parent store, maintainer, consumer
 
+**Core issue**:
+A bug report or idea about Core: the `ag` tool, the docs, or the runtime mappings. It goes on the issue tracker of the store that owns Core: the Upstream store, or the store itself when it has no Upstream store.
+_Avoid_: Upstream issue, issue on the Upstream store
+
 **Profile**:
 A named environment: its profile artifacts, its `profile.yaml`, and whatever else its folder holds. Each profile is carried by its own Profile branch.
 _Avoid_: Pack, context, overlay, defaults flag

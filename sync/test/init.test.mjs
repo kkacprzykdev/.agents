@@ -247,7 +247,7 @@ test("Core is read-only in a store with an Upstream store, until upstream is rem
   assert.ok(ok(world.ag(["status"])).includes(`Core:            read-only, from ${world.origin}`));
   const owner = fails(world.ag(["owner", "README.md"]));
   assert.match(owner, /README\.md is Core, which is read-only in this store/);
-  assert.match(owner, /open an issue on/);
+  assert.match(owner, /file a Core issue: ag issue bug\|idea/);
   assert.match(owner, /git -C ~\/\.agents remote remove upstream/);
   assert.match(
     fails(world.ag(["owner", "artifacts/rules-store-me/mine.mdc"])),

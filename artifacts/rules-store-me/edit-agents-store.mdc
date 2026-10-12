@@ -18,6 +18,10 @@ Keep every repository-wide update runtime-neutral. Put runtime-specific behavior
 
 For the store's own issue tracker, triage labels, and domain-doc layout, read `docs/agents/` in the store checkout (`~/.agents` or `~/.agents-edit`).
 
+## Core issues
+
+When you find a bug in `ag`, the docs, or the runtime mappings, or a change to them is needed that this store cannot make, file a Core issue with `ag issue bug` or `ag issue idea`. Never run `gh issue create` for it yourself. `ag issue` finds the store that owns Core and checks the body against the issue form's headings. First run it without `--yes`. Show the user the preview, and add `--yes` only after they approve it. The target repository may be public, so remove private content, such as profile names, paths, and artifact text, that the issue does not need.
+
 Paths below are relative to the store root.
 
 | Kind | Write here |
