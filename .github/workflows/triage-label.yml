@@ -1,0 +1,25 @@
+name: Triage label
+
+# Issue forms set the category label. ag issue sets it too for someone with push access.
+# This catches every issue from someone else, however it was opened.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    # Every user's own store carries this workflow. Its issues come from its owner, and it may not have the label.
+    if: >-
+      github.repository == 'kkacprzykdev/.agents' &&
+      !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add needs-triage
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: gh issue edit "$NUMBER" --add-label needs-triage
