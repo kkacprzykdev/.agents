@@ -59,7 +59,7 @@ Usage:
                                   A relative path is resolved from the current directory.
   ag edit <branch>                Switch the Edit worktree to a branch.
   ag push                         Push the branches of ~/.agents and the Edit worktree, except local-only ones.
-  ag update                       Fast-forward main from upstream if there is one, push main if needed,
+  ag update                       Fast-forward main from upstream if there is one, bring main level with origin,
                                   merge every Lineage branch with its parent, top down, then sync.
   ag skills add <url> [--skill <name>]
                                   Install third-party skills into the Active profile, commit, push, update.
@@ -1223,17 +1223,26 @@ function fastForwardUpstreamCore() {
 }
 
 // Profiles merge main from origin, so a main commit that was never pushed would not reach them.
-function pushCoreIfAhead() {
-  if (!localBranchExists(CORE_BRANCH) || !aheadOfOrigin(CORE_BRANCH, STORE_ROOT)) {
+// The local main also takes origin's commits, because the Edit worktree rests on it after the update.
+function updateCore() {
+  if (!localBranchExists(CORE_BRANCH)) {
+    return;
+  }
+  const ahead = aheadOfOrigin(CORE_BRANCH, STORE_ROOT);
+  const behind =
+    remoteHasBranch(CORE_BRANCH) && git(["rev-list", "--count", `${CORE_BRANCH}..origin/${CORE_BRANCH}`]).out !== "0";
+  if (!ahead && !behind) {
     return;
   }
   ensureEditWorktree();
   switchEditWorktree(CORE_BRANCH);
   log("info", `Updating ${CORE_BRANCH} in ${display(EDIT_WORKTREE)}`);
-  if (remoteHasBranch(CORE_BRANCH)) {
+  if (behind) {
     mergeStep(["pull", "origin", CORE_BRANCH, "--no-rebase", "--no-edit"], EDIT_WORKTREE, CORE_BRANCH);
   }
-  pushBranch(CORE_BRANCH, EDIT_WORKTREE);
+  if (ahead) {
+    pushBranch(CORE_BRANCH, EDIT_WORKTREE);
+  }
 }
 
 // The running process keeps the ag it started with. Once main holds a different ag, that old
@@ -1266,7 +1275,7 @@ function runUpdate() {
 
   const chain = lineage(active);
   fastForwardUpstreamCore();
-  pushCoreIfAhead();
+  updateCore();
   if (continueWithMergedAg()) {
     return;
   }
