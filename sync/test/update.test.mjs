@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { createDefault, createSetupSkill, createWorld, fails, ok } from "./world.mjs";
 
 let world;
@@ -108,6 +109,21 @@ test("ag update pushes a main commit that was never pushed, then brings it down"
 
   assert.ok(world.originHas("main", "core.txt"));
   assert.equal(world.read("core.txt"), "core change\n");
+});
+
+test("ag update fast-forwards main to a commit pushed from another computer", () => {
+  createDefault(world);
+  const other = join(world.base, "other-computer");
+  world.git(world.base, "clone", "-q", world.origin, other);
+  world.write("core.txt", "other\n", other);
+  world.commitAll(other, "Change core.txt on another computer");
+  world.git(other, "push", "-q", "origin", "main");
+
+  ok(world.ag(["update"]));
+
+  assert.equal(world.git(world.edit, "branch", "--show-current"), "main");
+  assert.equal(world.read("core.txt", world.edit), "other\n");
+  assert.equal(world.git(world.store, "rev-parse", "main"), world.git(world.store, "rev-parse", "origin/main"));
 });
 
 test("after a conflict on an ancestor, the rerun ends with the Edit worktree on main", () => {
