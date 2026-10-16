@@ -30,6 +30,19 @@ Many people use several coding agents, because they have different subscriptions
 - `ag sync` checks everything first. It never deletes your real files. When it stops, it changes no links.
 - Your coding agent can manage the store for you.
 
+## How it compares
+
+Many tools sync skills into coding agents. Most sync skills only, and most also manage project setups.
+
+This store does one job: your global setup, in profiles, on all your computers, set up quickly and easily.
+
+- **Global setup only.** It never touches a project's own setup. Your project's repository already handles that.
+- **Every kind of artifact.** Skills, commands, rules, subagents, and your `AGENTS.md` and `CLAUDE.md`, not only skills. See [Current coverage](#current-coverage) for what each coding agent receives today.
+- **Third-party skills too.** Install a skill pack globally with `ag skills add <url>`. It lands in your Active profile, is committed and pushed, and every coding agent gets it, the same as your own skills.
+- **Profiles on git branches.** One profile can build on another, for example `work` on `personal`. Switch with `ag use <profile>`.
+- **Your own git repository.** Private or public, with full history. Get the same setup on another computer with one clone.
+- **No app to run.** `ag` is one command for you and your agent. It needs only git and Node.js.
+
 ## Current coverage
 
 - Cursor gets:
