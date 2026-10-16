@@ -3,6 +3,7 @@
   "version": "3.0.0",
   "private": true,
   "type": "module",
+  "license": "MIT",
   "description": "Manage the ~/.agents store: profiles, runtime symlinks, branch updates, and push protection",
   "bin": {
     "ag": "./bin/ag.mjs"

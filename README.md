@@ -184,6 +184,7 @@ Each profile lives on its own branch, named after the profile. A Root profile is
 ├── .githooks/           # pre-push (push protection) and pre-commit (read-only Core, runs the ag tests)
 ├── .github/workflows/   # runs the ag tests on Linux, macOS, and Windows
 ├── .gitattributes       # Unix line endings in every checkout
+├── LICENSE              # MIT, covers Core only
 │
 │   # On profile branches only:
 ├── profiles/
@@ -400,3 +401,7 @@ Issues are welcome. Pull requests are not accepted for now.
 Ask your agent to file a Core issue with `ag issue bug` or `ag issue idea`. It finds this repository through your store's `upstream` remote and shows you the issue before it files it. To file one by hand, use the bug or idea form on this repository's [issues page](https://github.com/kkacprzykdev/.agents/issues/new/choose).
 
 </details>
+
+## License
+
+Core is under the [MIT license](./LICENSE). Your profiles, your artifacts, and the third-party skills you install are your own content, under your own terms. A third-party skill keeps its own license.
