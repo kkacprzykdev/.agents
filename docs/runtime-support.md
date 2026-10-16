@@ -61,11 +61,11 @@ Codex reads global instructions from `~/.codex/AGENTS.md`.
 
 Commands, rules, and subagents are not linked into Codex:
 
-- Codex CLI 0.117.0 removed custom prompts, its form of commands.
+- Codex CLI 0.118.0 removed custom prompts, its form of commands ([openai/codex#16115](https://github.com/openai/codex/pull/16115)).
 - `~/.codex/rules/` holds command-approval rules, not instructions.
 - Codex subagents are TOML files, not the Markdown format of the store's subagents.
 
-Sources: [Codex skills](https://developers.openai.com/codex/skills) and [Codex AGENTS.md](https://developers.openai.com/codex/guides/agents-md).
+Sources: [Codex skills](https://learn.chatgpt.com/docs/build-skills) and [Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
 
 A profile may record its own notes, such as how its artifacts behave in each coding agent, in its own docs.
 

@@ -87,3 +87,9 @@ _Avoid_: Vendor skill, external artifact
 **Global setup**:
 The artifacts the Active profile makes available to coding agents: the profile artifacts of its Lineage, the store artifacts, and the third-party skills. A clean profile includes no store artifacts. References and local files are not part of it.
 _Avoid_: Setup, machine setup
+
+### Design decisions
+
+**Prior art**:
+Another tool that solves part of the same problem, listed in `docs/prior-art.md`. It is one input to a design decision, next to the options in the issue and the agent's own. It never decides alone (ADR 0027).
+_Avoid_: Source of truth, reference implementation, the standard
