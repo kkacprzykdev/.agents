@@ -11,6 +11,7 @@ How the engineering skills should consume this store's domain documentation when
 
   Read each one relevant to the topic.
 - **`docs/adr/`**: Core decisions. **`profiles/<name>/docs/adr/`**: one profile's decisions. Read the ADRs that touch the area you're about to work in.
+- **`docs/prior-art.md`**: other tools that solve parts of the same problem. Before a design decision on sync, runtime mappings, or setup, check how they solve it.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
