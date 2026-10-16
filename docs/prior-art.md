@@ -4,6 +4,48 @@ Other tools already solve parts of what `ag` does. Before a design decision on s
 
 They are prior art, not dependencies. `ag` stays a tool for the Global setup only (ADR 0025), so a solution that needs a larger scope is adapted or left out.
 
+## Which tool to check
+
+| Problem | Check |
+|---|---|
+| Rules and commands in each coding agent | skillshare |
+| Subagents, and the TOML format of Codex | skillshare |
+| `AGENTS.md`, `CLAUDE.md`, and `@` imports | skillshare |
+| Finding the coding agents installed on a machine | skillshare |
+| Bringing existing files from an agent home into the store | skillshare, then skills-manager |
+| Finding duplicate skills | skills-manager |
+| Symlink or copy, and Windows | skillshare, then skills-manager |
+| Path of each coding agent's skills folder | skills-manager, then skillshare |
+| Hooks and MCP | skillshare |
+
+## skillshare
+
+[runkids/skillshare](https://github.com/runkids/skillshare), MIT license, written in Go. Checked at v0.25.13.
+
+A CLI, with a separate desktop app, that syncs one source into many coding agents. It has a global mode and a project mode.
+
+What it covers, from its README and source tree:
+
+- **Artifact kinds:** skills, subagents, rules and commands, instruction files, MCP connections, hooks, and plugins. Rules and commands are "extras": folders of files that sync into the folder each coding agent reads.
+- **Subagents:** an extension converts a Markdown subagent into a Codex TOML file. It writes the Markdown body into `developer_instructions`, so the TOML file holds the text itself.
+- **Instruction files:** it knows which instruction files and rules folders each coding agent reads, and in which order. It can move the text of a `CLAUDE.md` into an `AGENTS.md` and keep the `@` import lines in the `CLAUDE.md`.
+- **Sync:** symlinks on macOS and Linux. On Windows, junctions for folders, and file symlinks with Developer Mode, otherwise copies. Each target can switch to copies.
+- **Existing files:** `skillshare init` detects installed coding agents. `collect` copies files from a coding agent's folders back into the source.
+- **No profiles:** it has one source per mode, not profiles on git branches.
+
+Where to look:
+
+| Problem | Files |
+|---|---|
+| Rules and commands (extras) | `internal/sync/extras*.go`, `cmd/skillshare/extras*.go`, `ai_docs/tests/extras_commands_runbook.md` |
+| Subagents and Codex TOML | `extensions/codex-agents/`, `internal/sync/agent_sync.go`, `internal/resource/agent.go` |
+| Instruction files and `CLAUDE.md` to `AGENTS.md` | `internal/instructions/` |
+| Detecting coding agents, first setup | `cmd/skillshare/init_detect.go`, `cmd/skillshare/init_flow.go`, `internal/config/targets.go` |
+| Bringing files back from coding agents | `cmd/skillshare/collect*.go` |
+| Symlinks, copies, and Windows | `internal/sync/symlink_unix.go`, `internal/sync/symlink_windows.go`, `internal/sync/copy.go` |
+| MCP | `internal/mcp/` |
+| Hooks | `internal/hooks/` |
+
 ## skills-manager
 
 [xingkongliang/skills-manager](https://github.com/xingkongliang/skills-manager), MIT license. Checked at v1.42.0.
