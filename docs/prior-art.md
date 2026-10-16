@@ -37,14 +37,14 @@ Where to look:
 
 | Problem | Files |
 |---|---|
-| Rules and commands (extras) | `internal/sync/extras*.go`, `cmd/skillshare/extras*.go`, `ai_docs/tests/extras_commands_runbook.md` |
-| Subagents and Codex TOML | `extensions/codex-agents/`, `internal/sync/agent_sync.go`, `internal/resource/agent.go` |
-| Instruction files and `CLAUDE.md` to `AGENTS.md` | `internal/instructions/` |
-| Detecting coding agents, first setup | `cmd/skillshare/init_detect.go`, `cmd/skillshare/init_flow.go`, `internal/config/targets.go` |
-| Bringing files back from coding agents | `cmd/skillshare/collect*.go` |
-| Symlinks, copies, and Windows | `internal/sync/symlink_unix.go`, `internal/sync/symlink_windows.go`, `internal/sync/copy.go` |
-| MCP | `internal/mcp/` |
-| Hooks | `internal/hooks/` |
+| Rules and commands (extras) | [`internal/sync/extras*.go`](https://github.com/runkids/skillshare/tree/v0.25.13/internal/sync), [`cmd/skillshare/extras*.go`](https://github.com/runkids/skillshare/tree/v0.25.13/cmd/skillshare), [`ai_docs/tests/extras_commands_runbook.md`](https://github.com/runkids/skillshare/blob/v0.25.13/ai_docs/tests/extras_commands_runbook.md) |
+| Subagents and Codex TOML | [`extensions/codex-agents/`](https://github.com/runkids/skillshare/tree/v0.25.13/extensions/codex-agents), [`internal/sync/agent_sync.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/agent_sync.go), [`internal/resource/agent.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/resource/agent.go) |
+| Instruction files and `CLAUDE.md` to `AGENTS.md` | [`internal/instructions/`](https://github.com/runkids/skillshare/tree/v0.25.13/internal/instructions) |
+| Detecting coding agents, first setup | [`cmd/skillshare/init_detect.go`](https://github.com/runkids/skillshare/blob/v0.25.13/cmd/skillshare/init_detect.go), [`cmd/skillshare/init_flow.go`](https://github.com/runkids/skillshare/blob/v0.25.13/cmd/skillshare/init_flow.go), [`internal/config/targets.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/config/targets.go) |
+| Bringing files back from coding agents | [`cmd/skillshare/collect*.go`](https://github.com/runkids/skillshare/tree/v0.25.13/cmd/skillshare) |
+| Symlinks, copies, and Windows | [`internal/sync/symlink_unix.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/symlink_unix.go), [`internal/sync/symlink_windows.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/symlink_windows.go), [`internal/sync/copy.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/copy.go) |
+| MCP | [`internal/mcp/`](https://github.com/runkids/skillshare/tree/v0.25.13/internal/mcp) |
+| Hooks | [`internal/hooks/`](https://github.com/runkids/skillshare/tree/v0.25.13/internal/hooks) |
 
 ## skills-manager
 
@@ -65,9 +65,9 @@ Where to look:
 
 | Problem | Files |
 |---|---|
-| Path and behavior of each coding agent | `src-tauri/src/core/tool_adapters.rs`, `src-tauri/src/core/well_known.rs` |
-| Symlink or copy, Windows and WSL | `src-tauri/src/core/sync_engine.rs`, `src-tauri/src/core/sync_metadata.rs` |
-| Finding and adopting skills that already exist | `src-tauri/src/core/scanner.rs`, `src-tauri/src/commands/scan.rs` |
-| Finding duplicates by content | `src-tauri/src/core/content_hash.rs` |
-| Per-skill merge and conflicts | `src-tauri/src/core/merge/`, `src-tauri/src/core/git_backup.rs` |
-| Skill formats it accepts | `docs/skill-format-detection-spec.md` |
+| Path and behavior of each coding agent | [`src-tauri/src/core/tool_adapters.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/core/tool_adapters.rs), [`src-tauri/src/core/well_known.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/core/well_known.rs) |
+| Symlink or copy, Windows and WSL | [`src-tauri/src/core/sync_engine.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/core/sync_engine.rs), [`src-tauri/src/core/sync_metadata.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/core/sync_metadata.rs) |
+| Finding and adopting skills that already exist | [`src-tauri/src/core/scanner.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/core/scanner.rs), [`src-tauri/src/commands/scan.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/commands/scan.rs) |
+| Finding duplicates by content | [`src-tauri/src/core/content_hash.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/core/content_hash.rs) |
+| Per-skill merge and conflicts | [`src-tauri/src/core/merge/`](https://github.com/xingkongliang/skills-manager/tree/v1.42.0/src-tauri/src/core/merge), [`src-tauri/src/core/git_backup.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/core/git_backup.rs) |
+| Skill formats it accepts | [`docs/skill-format-detection-spec.md`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/docs/skill-format-detection-spec.md) |
