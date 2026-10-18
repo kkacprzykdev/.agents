@@ -184,11 +184,11 @@
       "source": "anthropics/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/anthropics/skills.git",
+      "ref": "main",
       "skillPath": "skills/frontend-design/SKILL.md",
-      "skillFolderHash": "0d5b74a14bdf3ebcd64f352d06376a2ef05ed296",
-      "pluginName": "example-skills",
+      "skillFolderHash": "d79e2a5bb4df4a386c2adcdd9ab8709bba28c3f6",
       "installedAt": "2026-07-05T10:42:13.529Z",
-      "updatedAt": "2026-07-06T06:37:58.399Z"
+      "updatedAt": "2026-10-18T09:51:39.587Z"
     },
     "template-skill": {
       "source": "anthropics/skills",
