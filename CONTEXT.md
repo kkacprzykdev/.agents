@@ -103,7 +103,7 @@ A worktree of the store, other than `~/.agents` and the Edit worktree, where one
 _Avoid_: feature worktree, T3 worktree
 
 **Profile impact**:
-The spec section that says which profile files a Core change needs to change, and the migration it needs (#4), or "none".
+The spec section that says which profile files a Core change needs to change, and the migration it needs, or "none".
 
 **Core-owner artifact**:
 A Store artifact that `ag sync` links only in a store that owns its Core. It lives in `artifacts/<kind>-core-me/`.
