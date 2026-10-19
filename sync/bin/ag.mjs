@@ -391,7 +391,8 @@ function loadRuntimes() {
   return parseRuntimesYaml(readFileSync(RUNTIMES_FILE, "utf8"));
 }
 
-function sourcesFor(kind, chain, { clean, readsStoreSkills }) {
+// Core-owner artifacts serve only the owner of Core, so a store with an Upstream store does not link them.
+function sourcesFor(kind, chain, { clean, ownsCore, readsStoreSkills }) {
   const profileSources = chain.map((profile) => `profiles/${profile}/artifacts/${kind}-profile-me`);
   if (kind === "instructions") {
     return profileSources;
@@ -399,6 +400,7 @@ function sourcesFor(kind, chain, { clean, readsStoreSkills }) {
   return [
     ...(kind === "skills" && !readsStoreSkills ? ["skills"] : []),
     ...(clean ? [] : [`artifacts/${kind}-store-me`]),
+    ...(clean || !ownsCore ? [] : [`artifacts/${kind}-core-me`]),
     ...profileSources,
   ];
 }
@@ -413,13 +415,14 @@ function linkPlan(profile) {
   const chain = lineage(profile);
   const runtimes = loadRuntimes();
   const { clean } = readProfileConfig(profile);
+  const ownsCore = !hasRemote(UPSTREAM);
 
   return Object.entries(runtimes).map(([name, runtime]) => ({
     name,
     home: runtime.home,
     links: KINDS.filter((kind) => runtime.targets[kind]).map((kind) => ({
       kind,
-      sources: sourcesFor(kind, chain, { clean, readsStoreSkills: runtime.readsStoreSkills }),
+      sources: sourcesFor(kind, chain, { clean, ownsCore, readsStoreSkills: runtime.readsStoreSkills }),
       target: runtime.targets[kind],
       linkExt: runtime.linkExt[kind],
     })),
@@ -1715,7 +1718,7 @@ function refuseCoreEdit(rel, error) {
   try {
     profile = readActiveProfile();
   } catch {}
-  const storeArtifact = rel?.match(/^artifacts\/(skills|commands|rules|subagents)-store-me\/(.+)$/);
+  const storeArtifact = rel?.match(/^artifacts\/(skills|commands|rules|subagents)-(?:store|core)-me\/(.+)$/);
   const profileTarget = storeArtifact
     ? `profiles/${profile}/artifacts/${storeArtifact[1]}-profile-me/${storeArtifact[2]}`
     : `profiles/${profile}/artifacts/<kind>-profile-me/`;
