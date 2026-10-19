@@ -1,0 +1,23 @@
+---
+description: Applies only in a Core change worktree of the ~/.agents store. Commit and git push only its branch, run no ag command that changes state, and test in the sync/test harness. Replaces the checkout and git steps of edit-agents-store.mdc there.
+alwaysApply: true
+---
+
+# Core change worktree
+
+This rule applies in a Core change worktree, and nowhere else.
+
+A **Core change worktree** is a worktree of the `~/.agents` store that is neither `~/.agents` nor the Edit worktree `~/.agents-edit`. One Core change is built there on its own branch, and reaches `main` only through a PR. `ag` does not manage it. The current checkout is one when both hold:
+
+- `git rev-parse --path-format=absolute --git-common-dir` prints the store's `.git`, `~/.agents/.git` with `~` expanded.
+- `git rev-parse --show-toplevel` prints neither `~/.agents` nor `~/.agents-edit`.
+
+In a Core change worktree, these instructions replace the "Which branch and checkout" and "Git" sections of `edit-agents-store.mdc`:
+
+- Commit only in this worktree. Push only its branch, to `origin`, with `git push`. The first push is `git push -u origin HEAD`, because the branch has no upstream yet.
+- Run no `ag` command that changes state. `ag status` and `ag owner` are fine. Ignore the `Checkout:` line of `ag owner`, and edit in this worktree.
+- `git fetch origin` and merging `origin/main` are allowed.
+- Test only in the fake-home harness: `npm test` in `sync/`.
+- Leave everything under `profiles/` as it is.
+- Put doc changes in the same commits as the code they describe. `store-docs.mdc` applies here too.
+- When a hook rejects a commit or a push, stop and tell the user. Keep every hook running: never pass `--no-verify`.

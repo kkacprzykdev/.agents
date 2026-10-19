@@ -90,6 +90,21 @@ _Avoid_: Setup, machine setup
 
 ### Core changes
 
+**Core change**:
+A change to Core, made in a store that owns its Core. A small one is edited on the Core branch in the Edit worktree. One that needs a spec goes through the Core change workflow.
+_Avoid_: release, feature
+
+**Core change workflow**:
+Grilling → Spec → Implementation → Merge, for a Core change that needs a spec. Grilling starts by bringing `main` level with `origin`.
+_Avoid_: dev process, pipeline, Prep, Trial
+
+**Core change worktree**:
+A worktree of the store, other than `~/.agents` and the Edit worktree, where one Core change is implemented on its own branch. `ag` does not manage it.
+_Avoid_: feature worktree, T3 worktree
+
+**Profile impact**:
+The spec section that says which profile files a Core change needs to change, and the migration it needs (#4), or "none".
+
 **Core-owner artifact**:
 A Store artifact that `ag sync` links only in a store that owns its Core. It lives in `artifacts/<kind>-core-me/`.
 _Avoid_: maintainer artifact, private store artifact

@@ -301,7 +301,16 @@ A store without an `upstream` remote owns its Core. `ag status` prints `Core: ow
 
 The checkout line says `~/.agents` when that checkout holds the owner, `~/.agents-edit (already on <branch>)` when the Edit worktree does, and `~/.agents-edit (run ag edit <branch> first)` otherwise.
 
-Edit the Active profile's branch in `~/.agents`. For any other branch, run `ag edit <branch>` and edit in `~/.agents-edit`. `ag edit` refuses when a checkout is not ready, and pulls the branch from `origin` first when it can be pushed. Then commit, run `ag push`, and run `ag update`. Agents do this after every change, without asking.
+Edit the Active profile's branch in `~/.agents`. For any other branch, run `ag edit <branch>` and edit in `~/.agents-edit`. `ag edit` refuses when a checkout is not ready, and pulls the branch from `origin` first when it can be pushed. Then commit, run `ag push`, and run `ag update`. Agents do this after every change, without asking, except in a Core change worktree (see below).
+
+In a store that owns its Core, a small Core edit, such as a typo, goes to `main` in `~/.agents-edit` like any other edit. A Core change that needs a spec follows the Core change workflow: Grilling → Spec → Implementation → Merge.
+
+1. **Grilling:** run `/core-grill <issue>` in your usual checkout. It runs `ag update`, then grills you on the issue with `/grill-with-docs` and `/domain-modeling`. The session is read-only. It keeps a list of planned doc changes instead of writing docs.
+2. **Spec:** when the design is clear, run `/to-spec` in the same session, and optionally `/to-tickets`.
+3. **Implementation:** start a new session in a new git worktree from `main`, a Core change worktree, and run `/core-implement <issue>`. It builds the change on that worktree's branch, tests and reviews it as far as the changed files need, and opens one PR into `main` that closes the issue. For a follow-up, run `/core-implement <PR>`. It continues on the PR's branch.
+4. **Merge:** review and merge the PR, then run `ag update`.
+
+The two commands and the rule `core-change-worktree.mdc` are Core-owner artifacts, so a store with an Upstream store never links them. In a Core change worktree, the rule replaces the steps above: agents commit only there, `git push` only its branch, run no `ag` command that changes state, and test only with `npm test` in `sync/`. The skills the commands use, such as `/to-spec` and `/tdd`, are not Core. They come from your Lineage, and a command stops when one is missing.
 
 To change a third-party skill for every profile, edit it on its owning branch. To change it for one profile only, edit it on that profile's branch. That change stays on the profile's branch, and a later update of the skill on an ancestor can conflict with it.
 

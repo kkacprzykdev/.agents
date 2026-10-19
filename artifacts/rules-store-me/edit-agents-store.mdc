@@ -1,5 +1,5 @@
 ---
-description: Edit skills, rules, commands, and subagents only under ~/.agents. First run ag status to see whether this store owns its Core or takes it read-only from an Upstream store. Run ag owner to find the branch and checkout. After every change, commit, ag push, and ag update without asking. Keep the store runtime-neutral. Configured agent homes are symlink targets from ag sync.
+description: Edit skills, rules, commands, and subagents only under ~/.agents. First run ag status to see whether this store owns its Core or takes it read-only from an Upstream store. Run ag owner to find the branch and checkout. After every change, commit, ag push, and ag update without asking, except in a Core change worktree, where core-change-worktree.mdc applies. Keep the store runtime-neutral. Configured agent homes are symlink targets from ag sync.
 alwaysApply: true
 ---
 
@@ -9,7 +9,7 @@ alwaysApply: true
 
 Run `ag status` and read its `Core:` line before any other step.
 
-- **`owned by this store`:** this store has no Upstream store. Core is edited on `main`, as the rest of this rule describes.
+- **`owned by this store`:** this store has no Upstream store. Core is edited on `main`, as the rest of this rule describes. A small Core edit, such as a typo, goes to `main` in the Edit worktree. A Core change that needs a spec follows the Core change workflow: `/core-grill`, `/to-spec`, then `/core-implement` in a Core change worktree (`core-change-worktree.mdc`).
 - **`read-only, from <url>`:** this store takes Core from an Upstream store. Never edit `main` or any Core path, on any branch. Core is everything outside `profiles/`, `skills/`, and `.skill-lock.json`. Put a store-level rule, skill, command, or subagent in a profile instead. `ag owner` and `ag edit main` refuse Core paths and name where the change goes. `ag push` and `ag update` refuse a `main` with commits of its own. The `pre-commit` hook rejects a commit on `main` and a commit that stages a Core file. Follow their message.
 
 Canonical store: `~/.agents/` (see `~/.agents/README.md`). `ag sync` symlinks the artifacts of the Active profile's Lineage into every coding agent. The runtime mappings live in `~/.agents/sync/runtimes.yaml`. Cursor, Claude, and Codex are current mappings, not the supported-agent boundary. Future mappings may include T3 Code or other compatible coding agents.
@@ -28,6 +28,7 @@ Paths below are relative to the store root.
 |---|---|
 | Artifacts of one profile, and of every profile created from it | `profiles/<profile>/artifacts/<kind>-profile-me/` |
 | Store artifacts (editing or documenting this store, or running `ag`) | `artifacts/<kind>-store-me/` |
+| Core-owner artifacts (Store artifacts only the owner of Core uses, such as the Core change workflow) | `artifacts/<kind>-core-me/` |
 | Third-party skills | `skills/<name>/`, installed with `ag skills add` |
 
 An artifact that a whole Lineage needs goes in the highest profile that needs it. A profile's own conventions, such as references, are in that profile's `README.md` and rules.
