@@ -7,7 +7,7 @@ alwaysApply: true
 
 Core docs are edited only in a store that owns its Core. See the first section of `edit-agents-store.mdc`.
 
-This rule covers every doc in the agents store (`~/.agents/`, or the Edit worktree `~/.agents-edit/`). Core docs are `docs/adr/`, other files in `docs/`, `README.md`, `CONTEXT.md`, `CONTEXT-MAP.md`, and `sync/CONTEXT.md`. Profile docs are a profile's `README.md`, `CONTEXT.md`, and `docs/` under `profiles/<name>/`. It does not cover `next.md`, which is an ideas list. It does not apply to other repositories.
+This rule covers every doc in the agents store (`~/.agents/`, the Edit worktree `~/.agents-edit/`, or a Core change worktree). Core docs are `docs/adr/`, other files in `docs/`, `README.md`, `CONTEXT.md`, `CONTEXT-MAP.md`, and `sync/CONTEXT.md`. Profile docs are a profile's `README.md`, `CONTEXT.md`, and `docs/` under `profiles/<name>/`. It does not cover `next.md`, which is an ideas list. It does not apply to other repositories.
 
 ## Current state only
 

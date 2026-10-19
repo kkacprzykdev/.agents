@@ -77,7 +77,7 @@ A profile's `AGENTS.md` or `CLAUDE.md`, in its `artifacts/instructions-profile-m
 _Avoid_: Memory file, global rule, context file
 
 **Store artifact**:
-A hand-authored artifact about the store itself: editing it, documenting it, or running `ag`. It lives outside every profile, is committed on the Core branch, and every profile links it.
+A hand-authored artifact about the store itself: editing it, documenting it, or running `ag`. It lives outside every profile, is committed on the Core branch, and every profile links it, except a Core-owner artifact.
 _Avoid_: Repo-local rule, putting store maintenance artifacts in a profile
 
 **Third-party skill**:
@@ -87,6 +87,27 @@ _Avoid_: Vendor skill, external artifact
 **Global setup**:
 The artifacts the Active profile makes available to coding agents: the profile artifacts of its Lineage, the store artifacts, and the third-party skills. A clean profile includes no store artifacts. References and local files are not part of it.
 _Avoid_: Setup, machine setup
+
+### Core changes
+
+**Core change**:
+A change to Core, made in a store that owns its Core. A small one is edited on the Core branch in the Edit worktree. One that needs a spec goes through the Core change workflow.
+_Avoid_: release, feature
+
+**Core change workflow**:
+Grilling → Spec → Implementation → Merge, for a Core change that needs a spec. Grilling starts by bringing `main` level with `origin`.
+_Avoid_: dev process, pipeline, Prep, Trial
+
+**Core change worktree**:
+A worktree of the store, other than `~/.agents` and the Edit worktree, where one Core change is implemented on its own branch. `ag` does not manage it.
+_Avoid_: feature worktree, T3 worktree
+
+**Profile impact**:
+The spec section that says which profile files a Core change needs to change, and the migration it needs, or "none".
+
+**Core-owner artifact**:
+A Store artifact that `ag sync` links only in a store that owns its Core. It lives in `artifacts/<kind>-core-me/`.
+_Avoid_: maintainer artifact, private store artifact
 
 ### Design decisions
 

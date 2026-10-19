@@ -119,6 +119,7 @@ export function createWorld() {
   chmodSync(join(store, ".githooks/pre-commit"), 0o755);
   for (const kind of ["skills", "commands", "rules", "subagents"]) {
     writeFile(store, `artifacts/${kind}-store-me/.gitkeep`, "");
+    writeFile(store, `artifacts/${kind}-core-me/.gitkeep`, "");
   }
   writeFile(store, "artifacts/rules-store-me/store-rule.mdc", "store rule\n");
   writeFile(store, ".gitignore", ".DS_Store\n");

@@ -6,6 +6,8 @@ Humans run the same commands. `ag sync`, `ag update`, `ag skills add`, and `ag p
 
 ADR 0020 applies this to pushing. Rules in `artifacts/rules-store-me/` tell agents to use `ag` and to treat a refusal as guidance.
 
+In a Core change worktree, the rule `core-change-worktree.mdc` allows `git fetch`, merging `origin/main`, and `git push` of the worktree's branch. No `ag` command covers them, and they touch only that branch.
+
 ## Considered Options
 
 - **Documenting git recipes in rules instead of commands:** an agent would have to follow every step in order and recognize every failure itself. A step it skips or reorders is not caught.

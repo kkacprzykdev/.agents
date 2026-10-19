@@ -1,7 +1,8 @@
 #!/bin/sh
 # In a store with an Upstream store, Core is read-only. Rejects a commit on main, and a commit that stages
 # a Core file on any other branch. A commit that concludes a merge passes, because merging main carries Core.
-# Then runs the ag tests when a commit changes the ag tool or the git hooks. A failing test blocks the commit.
+# Then runs the ag tests when a commit changes the ag tool, the git hooks, or artifacts/, which the layout test checks.
+# A failing test blocks the commit.
 
 if git remote get-url upstream >/dev/null 2>&1 && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
   if [ "$(git symbolic-ref --short -q HEAD)" = "main" ]; then
@@ -18,7 +19,7 @@ if git remote get-url upstream >/dev/null 2>&1 && ! git rev-parse -q --verify ME
   fi
 fi
 
-git diff --cached --name-only | grep -qE '^(sync/|\.githooks/)' || exit 0
+git diff --cached --name-only | grep -qE '^(sync/|\.githooks/|artifacts/)' || exit 0
 
 root=$(git rev-parse --show-toplevel)
 [ -d "$root/sync/test" ] || exit 0

@@ -4,7 +4,7 @@ Where a file lives says which branch owns it:
 
 - `profiles/<name>` and everything in it: the branch `<name>`. Every profile below it in a Lineage links its artifacts. Other files directly in `profiles/`, such as `.env.active`, belong to the Active profile.
 - `skills/` and `.skill-lock.json`: a third-party skills installer. A skill belongs to the highest branch in the Active profile's Lineage that contains it. A new skill, and the lock file, belong to the Active profile. A profile may still change an inherited skill on its own branch, for a change only it needs.
-- Everything else, including `artifacts/<kind>-store-me/`: Core, on `main`. Store artifacts are about editing `~/.agents`, documenting it, or running `ag`. Every profile links them.
+- Everything else, including `artifacts/<kind>-store-me/` and `artifacts/<kind>-core-me/`: Core, on `main`. Store artifacts are about editing `~/.agents`, documenting it, or running `ag`. Every profile links them, except the Core-owner artifacts in `artifacts/<kind>-core-me/`, which are linked only in a store that owns its Core (ADR 0028).
 
 `ag owner <path>` prints the store path it resolved, applies these rules, and names the checkout to edit: `~/.agents` when it holds the owning branch, the Edit worktree for any other. It reads the Active profile only for paths whose owner depends on it, so it answers `main` for Core paths even on a clone with no Active profile.
 

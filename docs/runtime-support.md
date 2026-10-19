@@ -16,7 +16,7 @@ Adding a runtime mapping to `sync/runtimes.yaml` only declares symlinks. It does
 
 ### Commands
 
-Files under `commands-profile-me/` use the Cursor command format. Claude Code still loads `~/.claude/commands/*.md` and follows symlinks, so they are linked as-is. Claude has merged commands into skills and calls commands the older format. A skill with the same name wins over a command.
+Command files, in a profile's `commands-profile-me/` and in the store's `commands-store-me/` and `commands-core-me/`, use the Cursor command format. Claude Code still loads `~/.claude/commands/*.md` and follows symlinks, so they are linked as-is. Claude has merged commands into skills and calls commands the older format. A skill with the same name wins over a command.
 
 Known differences:
 
@@ -28,7 +28,7 @@ Longer term, commands could become user-invoked skills (`disable-model-invocatio
 
 ### Rules
 
-Files under `rules-profile-me/` use the Cursor rule format (`.mdc`). Claude Code loads user rules from `~/.claude/rules/`, recursively, and follows symlinks. It only loads files whose name ends in `.md`, so the Claude mapping uses `link-ext: .md`. Each link is named `x.md` and points at `x.mdc`.
+Rule files, in a profile's `rules-profile-me/` and in the store's `rules-store-me/` and `rules-core-me/`, use the Cursor rule format (`.mdc`). Claude Code loads user rules from `~/.claude/rules/`, recursively, and follows symlinks. It only loads files whose name ends in `.md`, so the Claude mapping uses `link-ext: .md`. Each link is named `x.md` and points at `x.mdc`.
 
 Known differences:
 
