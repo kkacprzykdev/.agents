@@ -25,10 +25,10 @@ Try the argument as a PR first, and fall back to an issue, as `docs/agents/issue
    - Make every item in the issue's Implementation Decisions and Planned doc changes sections.
    - Run `/tdd` with the seams from the issue's Testing Decisions. They are agreed, so `/tdd` does not ask about them again.
    - When `ag` needs a new Core file, add it to `CORE_FILES` in `sync/test/world.mjs`, so the tests copy it.
-4. Run `/code-review origin/main`. Apply every finding you can confirm in the code. Keep each finding you reject, with its reason, for the PR description. Do one round, then rerun the tests the table requires.
+4. Run `/code-review origin/main`. Apply every finding you can confirm in the code. Keep each finding you reject, with its reason, for the PR description. Mark a rejected finding **decision needed** when neither the spec nor the code settles it, so only the user can choose. Do one round, then rerun the tests the table requires.
 5. Run `git fetch origin` and merge `origin/main` again. When an ADR this branch adds now shares its number with another ADR in its folder, stop and tell the user. The user renumbers by hand. Otherwise run `npm test` in `sync/` when the table requires it.
 6. Push the branch: `git push -u origin HEAD` the first time, `git push` after that.
-7. Open one PR into `main`. Write its description with `/gen-pr-desc`, add a section with the review findings you rejected and why, and end it with `Closes #<issue>`. Then stop. The user reviews and merges the PR.
+7. Open one PR into `main`. Write its description with `/gen-pr-desc`, add a section with the review findings you rejected and why, and end it with `Closes #<issue>`. Number the rejected findings, and start each one marked in step 4 with `(decision needed)`. Then stop. Your final message lists the `(decision needed)` findings by number, each with its options and your recommendation, and asks the user to choose. The user reviews and merges the PR.
 
 After `/to-tickets`, each ticket gets its own worktree and its own PR, which closes that ticket. The spec issue stays open until the user closes it after the last ticket.
 
@@ -38,7 +38,7 @@ After `/to-tickets`, each ticket gets its own worktree and its own PR, which clo
 2. Wait for the user's first message, which describes the change. Write no summary before it.
 3. Implement only when the user asks for it. Otherwise ask a follow-up question.
 4. To clarify the change, use `/grill-with-docs` directly. `/core-grill` runs `ag update`, which this worktree does not allow. The grilling is read-only, and keeps a list of planned doc changes instead of writing docs, as in `/core-grill`.
-5. Run step 1 of New work. Build what the user asked for as step 3 builds a spec, then run steps 4 to 6, which push to the PR's branch. Then update the PR description with `/gen-pr-desc`. When the follow-up changes a decision in the spec, update the spec issue body too.
+5. Run step 1 of New work. Build what the user asked for as step 3 builds a spec, then run steps 4 to 6, which push to the PR's branch. Then update the PR description with `/gen-pr-desc`. Take `(decision needed)` off each finding the user has decided, and move a finding you then applied out of the rejected list. When the follow-up changes a decision in the spec, update the spec issue body too.
 
 ## Which steps a change needs
 
