@@ -4,14 +4,37 @@ on:
   push:
     branches: [main]
     paths: ["sync/**", ".githooks/**", "artifacts/**", ".gitattributes", ".github/workflows/**"]
+  # Every pull request starts the workflow, so `main` can require the `ag tests result` check. The `changes` job decides whether the tests run.
   pull_request:
-    paths: ["sync/**", ".githooks/**", "artifacts/**", ".gitattributes", ".github/workflows/**"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
-  test:
+  changes:
     # Every user's own store carries this workflow. Their Core comes from this repository, so testing it there only spends their minutes.
     if: github.repository == 'kkacprzykdev/.agents'
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.paths.outputs.run }}
+    steps:
+      - id: paths
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The push paths above already filter pushes to main. Keep this pattern in sync with them.
+          run=true
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            files=$(gh pr diff ${{ github.event.pull_request.number }} --name-only --repo "${{ github.repository }}")
+            grep -qE '^(sync/|\.githooks/|artifacts/|\.gitattributes$|\.github/workflows/)' <<< "$files" || run=false
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -34,3 +57,16 @@ jobs:
           echo check > hook-check.txt
           git add hook-check.txt
           git commit -q -m "Check that the pre-commit hook runs"
+
+  result:
+    # The check that `main` requires. It passes when the tests passed or did not need to run.
+    name: ag tests result
+    needs: [changes, test]
+    if: always() && github.repository == 'kkacprzykdev/.agents'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = true ]; then
+            echo "The ag tests failed or were cancelled."
+            exit 1
+          fi
