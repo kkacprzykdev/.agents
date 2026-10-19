@@ -11,7 +11,7 @@ When a skill a step needs is missing, name it and stop. The skills come from the
 
 ## 1. Check the checkout
 
-Stop unless the current checkout is a Core change worktree, as `core-change-worktree.mdc` defines it. Tell the user to start a new session in a new worktree from `main`. From here on, follow that rule. Keep the branch name as it is, because T3 Code tracks a worktree by its branch.
+Stop unless the current checkout is a Core change worktree, as `core-change-worktree.mdc` defines it. Tell the user to start a new session in a new worktree from `main`. From here on, follow that rule. Keep the branch name as it is, because the tool that made the worktree, such as T3 Code, may track it by its branch.
 
 ## 2. Tell an issue from a PR
 

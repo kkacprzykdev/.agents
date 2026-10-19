@@ -21,7 +21,7 @@ Read the issue with its comments, as `~/.agents/docs/agents/issue-tracker.md` de
 
 Load `/grill-with-docs` and `/domain-modeling`, and grill the user on the issue with them.
 
-From here on the session is read-only: it changes no file, makes no commit, and runs no `ag` command that changes state. Docs describe only the current state (`store-docs.mdc`), and the code the design describes does not exist yet. So wherever the skills say to write a doc inline, add the change to a list of **planned doc changes** instead, and show the list each time it changes:
+From here on the session is read-only: it changes no file, makes no commit, and runs no `ag` command that changes state. Docs describe only the current state (`store-docs.mdc`), and the code the design describes does not exist yet. So wherever the skills say to write a doc inline, add the change to a list of **planned doc changes** instead:
 
 - glossary entries to add or change, per `CONTEXT.md`
 - ADRs to add, rewrite in place, or delete, following `store-docs.mdc`
@@ -39,5 +39,5 @@ The spec carries these sections beside the ones `/to-spec` writes:
 - **Planned doc changes:** the list from step 3.
 - **Prior art:** for each decision, its options and where each came from: the issue, the agent, or a tool.
 - **Profile impact:** "None", or the profile files the change needs and the migration it needs. A spec that needs a migration is blocked by #4. After `/to-tickets`, only the tickets that need the migration are.
-- **Check after merge:** what the user checks on the real machine after merging and running `ag update`. Every check reads state. Running `ag` in a clone of this store would push to the real store, because the clone's `origin` is that store.
+- **Check after merge:** what the user checks on the real machine after merging and running `ag update`. No check runs `ag` in a clone of this store: the clone's `origin` is the real store, so `ag` would push to it. The fake-home tests cover what such a check would show.
 - **Pilot findings:** what went wrong or was learned while running the steps by hand, when there is any.
