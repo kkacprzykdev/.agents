@@ -3,9 +3,9 @@ name: ag tests
 on:
   push:
     branches: [main]
-    paths: ["sync/**", ".githooks/**", ".gitattributes", ".github/workflows/**"]
+    paths: ["sync/**", ".githooks/**", "artifacts/**", ".gitattributes", ".github/workflows/**"]
   pull_request:
-    paths: ["sync/**", ".githooks/**", ".gitattributes", ".github/workflows/**"]
+    paths: ["sync/**", ".githooks/**", "artifacts/**", ".gitattributes", ".github/workflows/**"]
   workflow_dispatch:
 
 jobs:

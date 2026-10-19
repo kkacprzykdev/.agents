@@ -6,6 +6,8 @@
 
 The Edit worktree is never a sync source. Runtimes link only from `~/.agents`.
 
+A Core change worktree is not the Edit worktree, and `ag` does not manage it.
+
 ## Considered Options
 
 - **One worktree per ancestor branch:** a deep Lineage would need many checkouts, and each would need its own setup.

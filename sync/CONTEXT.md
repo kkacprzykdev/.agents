@@ -29,7 +29,7 @@ One Coding agent's entry in `sync/runtimes.yaml`: its Agent home, the target fol
 _Avoid_: sync.yaml, a per-profile copy of the mappings, a per-profile runtimes list
 
 **Link mapping**:
-One source list paired with one runtime target, worked out by `ag` for each artifact kind of a runtime. The sources are `skills/` (skills only, and not for a coding agent with `reads-store-skills: true`), the kind's store artifacts (not in a Clean profile), then each Lineage profile's `artifacts/<kind>-profile-me/`, from the top down. The `instructions` kind has only the profile sources. Missing sources are skipped. The mapping runs if any source directory exists.
+One source list paired with one runtime target, worked out by `ag` for each artifact kind of a runtime. The sources are `skills/` (skills only, and not for a coding agent with `reads-store-skills: true`), the kind's store artifacts (not in a Clean profile), the kind's Core-owner artifacts in `artifacts/<kind>-core-me/` (only in a store without an `upstream` remote, and never in a Clean profile), then each Lineage profile's `artifacts/<kind>-profile-me/`, from the top down. The `instructions` kind has only the profile sources. Missing sources are skipped. The mapping runs if any source directory exists.
 _Avoid_: Sync rule, path mapping
 
 **Coding agent**:
@@ -49,7 +49,7 @@ When two source directories contribute an entry with the same name to the same r
 _Avoid_: Override, merge conflict, nearest profile wins
 
 **`-me` suffix**:
-Marks directories of artifacts authored or maintained by hand (the `<kind>-profile-me` directories inside each profile and the `<kind>-store-me` directories at the store root), as opposed to third-party skills installed by a skills installer.
+Marks directories of artifacts authored or maintained by hand (the `<kind>-profile-me` directories inside each profile, and the `<kind>-store-me` and `<kind>-core-me` directories at the store root), as opposed to third-party skills installed by a skills installer.
 _Avoid_: Personal, custom, local
 
 **Artifact**:
