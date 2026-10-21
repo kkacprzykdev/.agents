@@ -58,6 +58,7 @@ This store does one job: your global setup, in profiles, on all your computers, 
 - Codex gets:
   - Skills in `~/.codex/skills/`
   - `AGENTS.md` and `CLAUDE.md` in `~/.codex/`
+  - Commands and rules, only on a machine that opts in to the Codex parity script
 
 Each coding agent reads the files in a slightly different way. Refer to [`docs/runtime-support.md`](./docs/runtime-support.md).
 
