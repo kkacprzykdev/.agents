@@ -68,6 +68,10 @@ _Avoid_: Conflict, obstruction
 A real file or directory in a runtime target that is not a Blocker and not hidden. The store does not manage it. Sync leaves it in place and lists it, with the profile folder to move it into.
 _Avoid_: Leftover, orphan, stray file
 
+**Codex parity script**:
+`sync/bin/codex-parity-sync.mjs`, a stopgap until sync parity (#2). It gives Codex the commands and rules that Sync links only into Cursor and Claude. It reads them from the Symlinks in `~/.claude/`, generates files into `sync/.generated/codex/`, and links those into `~/.codex/`: rules through `AGENTS.override.md`, and each command as the skill folder `cmd-<name>`. Each run deletes and recreates all its own links. Nothing in `ag` runs it. A machine opts in by putting `sync/bin/ag-codex-parity.mjs` on `PATH` as `ag`, which runs it after every command that syncs. `ag status` ignores its links (ADR 0029).
+_Avoid_: Codex sync, Codex mapping, sync parity
+
 **Sync tool**:
 The `ag` command-line tool (`sync/bin/ag.mjs`), built mainly for agents. Each store operation is one command that checks state first and, when it refuses, names the fix, so agents do not improvise git steps. Humans run the same commands. It sets up a store cloned from an Upstream store (`ag init`), creates profiles (`ag new`), switches them (`ag use`), propagates symlinks (`ag sync`), merges the Lineage (`ag update`), pushes (`ag push`), and reports state (`ag status`). It also names setup skills (`ag setup`), owners (`ag owner`), switches the Edit worktree (`ag edit`), installs third-party skills (`ag skills add`), turns on push protection (`ag protect`), and files Core issues (`ag issue`). Zero npm dependencies. Tested with `node:test` in `sync/test/`.
 _Avoid_: agents-sync, sync script, installer

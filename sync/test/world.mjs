@@ -20,6 +20,8 @@ import assert from "node:assert/strict";
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORE_FILES = [
   "sync/bin/ag.mjs",
+  "sync/bin/codex-parity-sync.mjs",
+  "sync/bin/ag-codex-parity.mjs",
   "sync/runtimes.yaml",
   ".githooks/pre-push",
   ".githooks/pre-commit",

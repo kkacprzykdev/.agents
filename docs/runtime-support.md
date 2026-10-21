@@ -8,7 +8,7 @@ The store is runtime-neutral by design, but each coding agent receives a differe
 
 **Claude** receives skills, commands, rules, `CLAUDE.md`, and `AGENTS.md`. `ag sync` links skills into `~/.claude/skills/`, commands into `~/.claude/commands/`, rules into `~/.claude/rules/`, and the two instruction files into `~/.claude/` itself. Subagents are not linked. This was verified against Claude Code 2.1.193.
 
-**Codex** receives store and profile skills, `AGENTS.md`, and `CLAUDE.md`. `ag sync` links the skills into `~/.codex/skills/` and the two instruction files into `~/.codex/` itself. Codex reads third-party skills from `~/.agents/skills/` on its own.
+**Codex** receives store and profile skills, `AGENTS.md`, and `CLAUDE.md`. `ag sync` links the skills into `~/.codex/skills/` and the two instruction files into `~/.codex/` itself. Codex reads third-party skills from `~/.agents/skills/` on its own. On a machine that opts in, the Codex parity script also gives it commands and rules (see [Codex](#codex)).
 
 Adding a runtime mapping to `sync/runtimes.yaml` only declares symlinks. It does not prove that the coding agent understands every artifact format or provides equivalent behavior.
 
@@ -64,6 +64,13 @@ Commands, rules, and subagents are not linked into Codex:
 - Codex CLI 0.118.0 removed custom prompts, its form of commands ([openai/codex#16115](https://github.com/openai/codex/pull/16115)).
 - `~/.codex/rules/` holds command-approval rules, not instructions.
 - Codex subagents are TOML files, not the Markdown format of the store's subagents.
+
+Until sync parity ([#2](https://github.com/kkacprzykdev/.agents/issues/2)), the opt-in Codex parity script gives Codex the commands and rules (ADR 0029):
+
+- `sync/bin/codex-parity-sync.mjs` reads them from the links in `~/.claude/commands/` and `~/.claude/rules/`, generates Codex files into `sync/.generated/codex/`, and links those into `~/.codex/`.
+- `~/.codex/AGENTS.override.md`, which Codex reads in place of `~/.codex/AGENTS.md`, lists `~/.codex/AGENTS.md` and every rule file by path. The agent reads each file itself.
+- Each command is a skill in `~/.codex/skills/cmd-<name>/`, invoked as `$<name>`. Codex takes the skill name from `name:` in `SKILL.md`, not from the folder. `allow_implicit_invocation: false` in `agents/openai.yaml` lets only the user invoke it. Verified with Codex CLI 0.163.0.
+- To opt in, link `sync/bin/ag-codex-parity.mjs` as `ag` in a folder that comes before the real `ag` on `PATH`. It runs the script after `ag sync`, `ag update`, `ag use`, and `ag skills add`. `codex-parity-sync.mjs --remove` deletes everything the script made.
 
 Sources: [Codex skills](https://learn.chatgpt.com/docs/build-skills) and [Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
 
