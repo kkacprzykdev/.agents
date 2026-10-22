@@ -42,7 +42,7 @@ test("ag sync removes the links of a Runtime target that Core removed", () => {
 
   const output = ok(world.ag(["sync"]));
 
-  assert.match(output, /removed: old symlink .*\.claude\/rules\/default-rule\.md/);
+  assert.ok(output.includes(`removed: old symlink ${join(world.home, ".claude/rules/default-rule.md")}\n`), output);
   assert.equal(isLink(".claude/rules/default-rule.md"), false);
   assert.equal(isLink(".claude/rules/store-rule.md"), false);
   assert.ok(isLink(".claude/CLAUDE.md"));
@@ -80,7 +80,7 @@ test("ag sync --dry-run reports the old links it would remove, removes nothing, 
 
   const output = ok(world.ag(["sync", "--dry-run"]));
 
-  assert.match(output, /would remove: old symlink .*\.claude\/old-rule\.md/);
+  assert.ok(output.includes(`would remove: old symlink ${join(world.home, ".claude/old-rule.md")}\n`), output);
   assert.ok(isLink(".claude/old-rule.md"));
   assert.equal(readFileSync(recordFile(), "utf8"), "");
 });
@@ -150,7 +150,8 @@ test("ag status reports the old links the scan would remove", () => {
 
   const output = ok(world.ag(["status"]));
 
-  assert.match(output, /Symlinks: +1 out of date — run ag sync\n +.*\.claude\/old-rule\.md\n/);
+  assert.match(output, /Symlinks: +1 out of date — run ag sync\n/);
+  assert.ok(output.includes(`${join(world.home, ".claude/old-rule.md")}\n`), output);
   ok(world.ag(["sync"]));
   assert.match(ok(world.ag(["status"])), /Symlinks: +up to date/);
 });
