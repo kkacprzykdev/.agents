@@ -29,6 +29,8 @@ From here on the session is read-only: it changes no file, makes no commit, and 
 
 Weigh prior art as ADR 0027 says (`~/.agents/docs/adr/0027-prior-art-informs-decisions.md`). Look it up in a read-only subagent, which returns only short answers.
 
+Wait for every subagent you started, for prior art or for facts, before you ask the user anything. This replaces the "Don't block on it" advice of `/grilling`: ask no question of any round while a subagent runs, because its result can change or repeat them. Until it reports, end each turn with one line that says what you wait for. When it reports, merge its result into the design, then write the whole next round again, so that no question overlaps an earlier one.
+
 ## 4. Spec
 
 The user decides when the design is clear. Keep grilling until they run `/to-spec`, and maybe `/to-tickets` after it.
