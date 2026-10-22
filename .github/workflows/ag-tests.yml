@@ -42,6 +42,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The full history, so a test can take the ag from a pinned commit before Profile migrations.
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: lts/*

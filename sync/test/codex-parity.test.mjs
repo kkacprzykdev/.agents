@@ -114,3 +114,13 @@ test("ag sync drops the command skills, ag-codex-parity puts them back, and --re
   assert.equal(world.exists("sync/.generated"), true);
   assert.equal(world.exists(GENERATED), false);
 });
+
+test("ag-codex-parity puts the command skills back after ag new, and ag new leaves the override alone", () => {
+  ok(parity());
+
+  ok(wrapped(["new", "child", "--from", "default"]));
+
+  assert.ok(isLink(".codex/skills/cmd-grill"));
+  assert.ok(isLink(".codex/skills/cmd-work-state"));
+  assert.ok(isLink(".codex/AGENTS.override.md"));
+});

@@ -38,6 +38,6 @@ The spec carries these sections beside the ones `/to-spec` writes:
 - **Testing Decisions:** the seams, agreed with the user. `/core-implement` takes them from the spec and does not ask again.
 - **Planned doc changes:** the list from step 3.
 - **Prior art:** for each decision, its options and where each came from: the issue, the agent, or a tool.
-- **Profile impact:** "None", or the profile files the change needs and the migration it needs.
+- **Profile impact:** "None", or the profile files the change moves and the Profile migration that moves them (ADR 0030). Prefer a change that needs no migration, for example one derived at sync time. A change that needs one ships the migration in `sync/migrations/` with its test, in the same PR.
 - **Check after merge:** what the user checks on the real machine after merging and running `ag update`. No check runs `ag` in a clone of this store: the clone's `origin` is the real store, so `ag` would push to it. The fake-home tests cover what such a check would show.
 - **Pilot findings:** what went wrong or was learned while running the steps by hand, when there is any.

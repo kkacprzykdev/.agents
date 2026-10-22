@@ -18,6 +18,6 @@ In a Core change worktree, these instructions replace the "Which branch and chec
 - Run no `ag` command that changes state. `ag status` and `ag owner` are fine. Ignore the `Checkout:` line of `ag owner`, and edit in this worktree.
 - `git fetch origin` and merging `origin/main` are allowed.
 - Test only in the fake-home harness: `npm test` in `sync/`.
-- Leave everything under `profiles/` as it is.
+- Leave everything under `profiles/` as it is. A Core change that needs profile files changed ships a Profile migration in `sync/migrations/`, tested on fixtures in `sync/test/`. `ag update` runs it on each real profile after merge.
 - Put doc changes in the same commits as the code they describe. `store-docs.mdc` applies here too.
 - When a hook rejects a commit or a push, stop and tell the user. Keep every hook running: never pass `--no-verify`.
