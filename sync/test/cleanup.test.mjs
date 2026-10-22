@@ -113,6 +113,20 @@ test("the scan goes two levels deep, skips symlinked folders, and removes only l
   assert.ok(isLink(".claude/unrelated"));
 });
 
+test("the scan removes a link to a source folder itself, such as the whole skills folder", () => {
+  createDefault(world);
+  const claude = join(world.home, ".claude");
+  mkdirSync(join(world.store, "skills"), { recursive: true });
+  symlinkSync(join(world.store, "skills"), join(claude, "old-skills"));
+  symlinkSync(join(world.store, "profiles"), join(claude, "old-profiles"));
+
+  assert.match(ok(world.ag(["status"])), /old-skills/);
+  ok(world.ag(["sync"]));
+
+  assert.equal(isLink(".claude/old-skills"), false);
+  assert.equal(isLink(".claude/old-profiles"), false);
+});
+
 test("after ag use switches to a branch whose Core does not map Codex, Codex keeps no link to the previous profile", () => {
   mkdirSync(join(world.home, ".codex"));
   createDefault(world);

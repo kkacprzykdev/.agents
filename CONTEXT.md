@@ -43,7 +43,7 @@ The git branch that carries one profile, named after it. It also carries the fol
 _Avoid_: Pack branch, environment branch
 
 **Profile skeleton**:
-What `ag new` always writes for a new profile: `profile.yaml` and the five `artifacts/<kind>-profile-me/` folders. A Root profile that is not a Clean profile also gets both Global instructions files: an empty `AGENTS.md`, and a `CLAUDE.md` that imports it with `@~/.claude/AGENTS.md`. Everything else in a profile folder is added later, only to extend the Lineage. The skeleton starts at the Core migration level of the running `ag`, so a new profile runs no Profile migrations.
+What `ag new` always writes for a new profile: `profile.yaml` and the five `artifacts/<kind>-profile-me/` folders. A Root profile that is not a Clean profile also gets both Global instructions files: an empty `AGENTS.md`, and a `CLAUDE.md` that imports it with `@~/.claude/AGENTS.md`. Everything else in a profile folder is added later, only to extend the Lineage. The skeleton starts at the Core migration level of the running `ag`. When `main` has newer migrations, the final `ag update` of `ag new` runs them on the new profile.
 _Avoid_: Profile template, copying the parent's folder
 
 **Profile migration**:
@@ -51,7 +51,7 @@ A numbered change from Core that brings one profile's committed files into the l
 _Avoid_: Schema version, upgrade
 
 **Migration level**:
-The layout level of a profile's files, kept as `migration-level` in its `profile.yaml`. A missing key means level 0. It is not a count of the migrations that ran, because a new profile starts at the newest level.
+The layout level of a profile's files, kept as `migration-level` in its `profile.yaml`. A missing key means level 0. It is not a count of the migrations that ran, because a new profile starts at the level of the `ag` that created it.
 _Avoid_: Version, schema version
 
 **Core migration level**:

@@ -856,7 +856,7 @@ function agentHomesToScan() {
 
 function pointsIntoStoreSources(linkPath) {
   const target = resolve(dirname(linkPath), readlinkSync(linkPath));
-  return SOURCE_ROOTS.some((root) => insideRoot(root, target));
+  return SOURCE_ROOTS.some((root) => insideRoot(root, target) !== null);
 }
 
 // Symlinks into the store's sources, two levels deep: the entries of each agent home, and the entries of each

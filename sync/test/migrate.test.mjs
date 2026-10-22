@@ -198,6 +198,47 @@ test("a migration that crashes puts the profile folder back, keeps local files, 
   assert.match(world.read("profiles/default/profile.yaml"), /^migration-level: 1$/m);
 });
 
+// Done on every profile but work. On work it breaks profile.yaml, adds files next to a local file, then fails.
+const CRASHES_ON_WORK = `import { mkdirSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
+
+export function migrate(profileDir) {
+  if (basename(profileDir) !== "work") {
+    return { status: "done" };
+  }
+  writeFileSync(join(profileDir, "profile.yaml"), "broken\\n");
+  mkdirSync(join(profileDir, "secrets/draft"));
+  writeFileSync(join(profileDir, "secrets/draft/new.md"), "new\\n");
+  throw new Error("bug in the migration");
+}
+`;
+
+test("a crash on a child profile leaves nested local files, the parent's folder, skills/ and .git as they were", () => {
+  createDefault(world);
+  ok(world.ag(["new", "work", "--from", "default"]));
+  createSetupSkill(world, "work");
+  world.write("profiles/work/profile.yaml", "parent: default\nlocal-files: [secrets/key.env]\n");
+  world.write("skills/third-party/SKILL.md", "skill\n");
+  world.commitAll(world.store, "Add a nested local file and a third-party skill");
+  ok(world.ag(["push"]));
+  world.write("profiles/work/secrets/key.env", "KEY=1\n");
+  world.addMigration("0001-crash-on-work.mjs", CRASHES_ON_WORK);
+
+  assert.match(fails(world.ag(["update"])), /Profile migration 0001-crash-on-work failed on branch work in ~\/\.agents:/);
+
+  assert.equal(world.git(world.store, "status", "--porcelain"), "");
+  assert.equal(world.read("profiles/work/profile.yaml"), "parent: default\nlocal-files: [secrets/key.env]\n");
+  assert.equal(world.read("profiles/work/secrets/key.env"), "KEY=1\n");
+  assert.equal(world.exists("profiles/work/secrets/draft"), false);
+  assert.equal(world.read("skills/third-party/SKILL.md"), "skill\n");
+  assert.equal(
+    world.git(world.store, "rev-parse", "HEAD:profiles/default"),
+    world.git(world.store, "rev-parse", "default:profiles/default"),
+  );
+  assert.match(world.read(".git/info/exclude"), /^\/profiles\/work\/secrets\/key\.env$/m);
+  assert.equal(world.git(world.store, "branch", "--show-current"), "work");
+});
+
 test("a computer that pulls an already migrated branch runs nothing", () => {
   createDefault(world);
   world.addMigration("0001-add-notes.mjs", writes("notes.md", "notes\n"));
