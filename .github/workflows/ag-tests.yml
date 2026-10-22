@@ -38,7 +38,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
+        shard: [1/1]
+        # Windows starts processes slowly, and each test starts hundreds of git processes.
+        # So its run is split by test file into four jobs that run at the same time.
+        include:
+          - { os: windows-latest, shard: 1/4 }
+          - { os: windows-latest, shard: 2/4 }
+          - { os: windows-latest, shard: 3/4 }
+          - { os: windows-latest, shard: 4/4 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -50,7 +58,8 @@ jobs:
           node-version: lts/*
       - name: Run the ag tests
         working-directory: sync
-        run: npm test
+        # node runs the suite itself, because Node ignores a --test-shard flag that npm test puts after its file list.
+        run: node --test --test-shard=${{ matrix.shard }} "test/*.test.mjs"
       - name: Run a git hook from this checkout
         shell: bash
         run: |
