@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
-  copyFileSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -20,6 +20,7 @@ import assert from "node:assert/strict";
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORE_FILES = [
   "sync/bin/ag.mjs",
+  "sync/migrations",
   "sync/bin/codex-parity-sync.mjs",
   "sync/bin/ag-codex-parity.mjs",
   "sync/runtimes.yaml",
@@ -70,38 +71,51 @@ export function fails(result) {
   return `${result.stdout}\n${result.stderr}`;
 }
 
+// The last commit of the source repository before Profile migrations. Its ag knows no migration-level key.
+// CI checks out the full history, so git show finds it.
+const PINNED_OLD_AG = "120d8aaa7203e62ec53104e226bb3a715fa26568";
+
+export const CURRENT_AG = readFileSync(join(REPO, "sync/bin/ag.mjs"), "utf8");
+
+export function oldAgSource() {
+  const result = spawnSync("git", ["-C", REPO, "show", `${PINNED_OLD_AG}:sync/bin/ag.mjs`], {
+    env: cleanEnv({}),
+    encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  assert.equal(result.status, 0, `git show of the old ag failed: ${result.stderr}`);
+  return result.stdout;
+}
+
 // A throwaway world: a bare origin, a store at $HOME/.agents on main, and empty runtime homes.
-export function createWorld() {
+// world.computer() adds another computer with its own home and a clone of the same origin.
+// With agSource, the store's first Core commit holds that ag instead of this repository's.
+export function createWorld({ agSource } = {}) {
   // Native, so Windows short names in the temp folder (RUNNER~1) become the long names git reports.
   const base = realpathSync.native(mkdtempSync(join(tmpdir(), "ag-test-")));
-  const home = join(base, "home");
   const bin = join(base, "bin");
   const origin = join(base, "origin.git");
-  const store = join(home, ".agents");
-  const edit = `${store}-edit`;
+  mkdirSync(bin, { recursive: true });
 
-  for (const dir of [join(home, ".cursor"), join(home, ".claude"), bin, store]) {
-    mkdirSync(dir, { recursive: true });
-  }
-
-  const env = cleanEnv({
-    HOME: home,
-    USERPROFILE: home,
-    GIT_CONFIG_GLOBAL: "/dev/null",
-    GIT_CONFIG_NOSYSTEM: "1",
-    GIT_AUTHOR_NAME: "Test",
-    GIT_AUTHOR_EMAIL: "test@example.com",
-    GIT_COMMITTER_NAME: "Test",
-    GIT_COMMITTER_EMAIL: "test@example.com",
-    GIT_TERMINAL_PROMPT: "0",
-    PATH: `${bin}${delimiter}${process.env.PATH}`,
-  });
+  const envFor = (home) =>
+    cleanEnv({
+      HOME: home,
+      USERPROFILE: home,
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_AUTHOR_NAME: "Test",
+      GIT_AUTHOR_EMAIL: "test@example.com",
+      GIT_COMMITTER_NAME: "Test",
+      GIT_COMMITTER_EMAIL: "test@example.com",
+      GIT_TERMINAL_PROMPT: "0",
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
+    });
   // A real npm link would change the machine's global packages, and a real gh could create repositories.
   writeStub(bin, "npm", recorder("npm"));
   writeStub(bin, "gh", "process.exit(1);\n");
 
-  const run = (command, args, cwd) =>
-    spawnSync(command, args, { cwd, env, encoding: "utf8" });
+  const baseEnv = envFor(join(base, "home"));
+  const run = (command, args, cwd, env = baseEnv) => spawnSync(command, args, { cwd, env, encoding: "utf8" });
 
   const git = (cwd, ...args) => {
     const result = run("git", args, cwd);
@@ -111,11 +125,46 @@ export function createWorld() {
     return result.stdout.trim();
   };
 
+  const commitAll = (root, message) => {
+    git(root, "add", "-A");
+    git(root, "commit", "-q", "-m", message);
+  };
+
+  // One computer: a home with empty agent homes, and the store at $HOME/.agents.
+  const computer = (home) => {
+    const env = envFor(home);
+    const store = join(home, ".agents");
+    for (const dir of [join(home, ".cursor"), join(home, ".claude")]) {
+      mkdirSync(dir, { recursive: true });
+    }
+    return {
+      home,
+      store,
+      edit: `${store}-edit`,
+      env,
+      ag: (args, { cwd = store } = {}) => run(process.execPath, [join(store, "sync/bin/ag.mjs"), ...args], cwd, env),
+      write: (rel, content, root = store) => writeFile(root, rel, content),
+      read: (rel, root = store) => readFileSync(join(root, rel), "utf8"),
+      exists: (rel, root = store) => existsSync(join(root, rel)),
+      linkTarget: (path) => {
+        const full = join(home, path);
+        return lstatSync(full).isSymbolicLink() ? resolve(readlinkSync(full)) : null;
+      },
+    };
+  };
+
+  const first = computer(join(base, "home"));
+  const { store, edit } = first;
+  mkdirSync(store, { recursive: true });
+
   git(base, "init", "-q", "--bare", "-b", "main", origin);
   git(store, "init", "-q", "-b", "main");
   for (const rel of CORE_FILES) {
     mkdirSync(dirname(join(store, rel)), { recursive: true });
-    copyFileSync(join(REPO, rel), join(store, rel));
+    cpSync(join(REPO, rel), join(store, rel), { recursive: true });
+  }
+  if (agSource) {
+    writeFileSync(join(store, "sync/bin/ag.mjs"), agSource);
   }
   chmodSync(join(store, ".githooks/pre-push"), 0o755);
   chmodSync(join(store, ".githooks/pre-commit"), 0o755);
@@ -131,34 +180,19 @@ export function createWorld() {
   git(store, "push", "-q", "-u", "origin", "main");
 
   const world = {
+    ...first,
     base,
-    home,
-    store,
-    edit,
     origin,
     bin,
     git,
     // Like git, but returns the result instead of throwing, for commands that are expected to fail.
     tryGit: (cwd, ...args) => run("git", args, cwd),
-    env,
-    ag: (args, { cwd = store } = {}) =>
-      run(process.execPath, [join(store, "sync/bin/ag.mjs"), ...args], cwd),
-    write: (rel, content, root = store) => writeFile(root, rel, content),
-    read: (rel, root = store) => readFileSync(join(root, rel), "utf8"),
-    exists: (rel, root = store) => existsSync(join(root, rel)),
-    commitAll: (root, message) => {
-      git(root, "add", "-A");
-      git(root, "commit", "-q", "-m", message);
-    },
+    commitAll,
     originHas: (branch, path) =>
       run("git", ["--git-dir", origin, "cat-file", "-e", `${branch}:${path}`], base).status === 0,
     originHasBranch: (branch) =>
       run("git", ["--git-dir", origin, "rev-parse", "--verify", "-q", `refs/heads/${branch}`], base)
         .status === 0,
-    linkTarget: (path) => {
-      const full = join(home, path);
-      return lstatSync(full).isSymbolicLink() ? resolve(readlinkSync(full)) : null;
-    },
     stub: (name, source) => writeStub(bin, name, source),
     record: (name) => writeStub(bin, name, recorder(name)),
     calls: (name) => {
@@ -172,6 +206,22 @@ export function createWorld() {
       const path = join(base, `${name}.git`);
       git(base, "init", "-q", "--bare", "-b", "main", path);
       return path;
+    },
+    // Another computer with its own home, its store cloned from origin, on main.
+    computer: (name) => {
+      const other = computer(join(base, name));
+      git(base, "clone", "-q", origin, other.store);
+      return { ...other, git, commitAll };
+    },
+    // Commits a Profile migration module to main and pushes it, as a Core change would.
+    addMigration: (file, source) => {
+      const checkout = git(store, "branch", "--show-current") === "main" ? store : edit;
+      if (checkout === edit) {
+        ok(first.ag(["edit", "main"]));
+      }
+      writeFile(checkout, `sync/migrations/${file}`, source);
+      commitAll(checkout, `Add migration ${file}`);
+      git(checkout, "push", "-q", "origin", "main");
     },
     cleanup: () => rmSync(base, { recursive: true, force: true }),
   };

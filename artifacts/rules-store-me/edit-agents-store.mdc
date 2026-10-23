@@ -51,6 +51,8 @@ Every `ag` command reads `~/.agents` and `~/.agents-edit`, whatever directory it
 - Never run `git push`. `ag push` keeps a branch local when its Lineage has a Protected profile.
 - Never bypass a hook with `--no-verify`. If the pre-commit or pre-push hook rejects something, stop and tell the user.
 - If `ag update` stops on a merge conflict, it names the checkout and branch. Resolve the conflict there, commit, and run `ag update` again.
+- If `ag update` stops on a Profile migration, its message names the checkout, the branch, the steps, and the commit message. The migration's partial changes are already in that checkout, uncommitted. Do the steps there, and ask the user when a step needs their decision. Commit with that message, then run `ag update` again. It finishes the migration.
+- If `ag sync` or `ag use` says a migration is pending, run `ag update`.
 - If an `ag` command refuses because a checkout has uncommitted changes, it lists them above the error. Commit them in that checkout, then run the command again.
 - Switch profiles only with `ag use <profile>`, never with `git switch` or `git checkout` in `~/.agents`.
 - Create profiles only with `ag new`. Do not improvise the layout.

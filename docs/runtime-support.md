@@ -45,7 +45,7 @@ Subagents are linked into Cursor only. Their portability to other coding agents 
 
 ### Global instructions files
 
-A profile keeps its `AGENTS.md` and `CLAUDE.md` in `artifacts/instructions-profile-me/`. That folder holds only these two files. `ag sync` links both files into the Agent home of Claude and of Codex. In the Agent home itself, sync manages only these two names. It never removes or lists any other file or symlink there, such as `~/.claude/settings.json`.
+A profile keeps its `AGENTS.md` and `CLAUDE.md` in `artifacts/instructions-profile-me/`. That folder holds only these two files. `ag sync` links both files into the Agent home of Claude and of Codex. In the Agent home itself, clearing the target touches only these two names. Sync never removes or lists a real file there, such as `~/.claude/settings.json`. Its scan for old links removes only symlinks that point into the store's sources and that the current sync does not create.
 
 Claude reads `~/.claude/CLAUDE.md`, and Codex reads `~/.codex/AGENTS.md`. A Root profile starts with an empty `AGENTS.md` and a `CLAUDE.md` that holds `@~/.claude/AGENTS.md`, so both get one text. The import uses the link in `~/.claude/`, because a relative import resolves next to the real `CLAUDE.md`, and the two files can sit in different profiles of a Lineage. That is why both files go into both homes.
 
@@ -70,7 +70,7 @@ Until sync parity ([#2](https://github.com/kkacprzykdev/.agents/issues/2)), the 
 - `sync/bin/codex-parity-sync.mjs` reads them from the links in `~/.claude/commands/` and `~/.claude/rules/`, generates Codex files into `sync/.generated/codex/`, and links those into `~/.codex/`.
 - `~/.codex/AGENTS.override.md`, which Codex reads in place of `~/.codex/AGENTS.md`, lists `~/.codex/AGENTS.md` and every rule file by path. The agent reads each file itself.
 - Each command is a skill in `~/.codex/skills/cmd-<name>/`, invoked as `$<name>`. Codex takes the skill name from `name:` in `SKILL.md`, not from the folder. `allow_implicit_invocation: false` in `agents/openai.yaml` lets only the user invoke it. Verified with Codex CLI 0.163.0.
-- To opt in, link `sync/bin/ag-codex-parity.mjs` as `ag` in a folder that comes before the real `ag` on `PATH`. It runs the script after `ag sync`, `ag update`, `ag use`, and `ag skills add`. To opt out, run `codex-parity-sync.mjs --remove`, which deletes everything the script made, then delete that `ag` link.
+- To opt in, link `sync/bin/ag-codex-parity.mjs` as `ag` in a folder that comes before the real `ag` on `PATH`. It runs the script after `ag sync`, `ag update`, `ag use`, `ag new`, and `ag skills add`. The script owns its links: `ag sync` clears the command skills with the rest of `~/.codex/skills/`, and the wrapper makes them again, but the scan for old links never removes a link into `sync/.generated/`. To opt out, run `codex-parity-sync.mjs --remove`, which deletes everything the script made, then delete that `ag` link.
 
 Sources: [Codex skills](https://learn.chatgpt.com/docs/build-skills) and [Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
 

@@ -5,13 +5,15 @@ Each profile has a committed `profiles/<name>/profile.yaml`:
 ```yaml
 parent: default
 local-files: [.env, .env.outputs]
+migration-level: 2
 ```
 
 - `parent` names the one Parent profile, or `main` for a Root profile. `ag` follows it to build the Lineage, at any depth.
 - `local-files` lists the profile's files that are never committed, relative to its folder.
+- `migration-level` is the layout level of the profile's committed files (ADR 0030). A missing key means 0, and `ag` never writes 0. `ag new` writes the Core migration level of the checkout that holds the running `ag`, and each Profile migration raises it in its own commit. `ag sync` refuses while it is below the level of its branch's Core, and warns when it is above.
 - `clean: true` makes a Clean profile, which links no store artifacts. `ag` reads it from the Active profile only. `ag new <name> --clean` writes `parent: main` and `clean: true`, so the profile links nothing into any coding agent.
 
-`ag new` writes the file. With `--from`, it copies the parent's `local-files`, and copies those local files from the parent's folder.
+`ag new` writes the file. An `ag` from before a key fails on it with `unknown key`, so a new key reaches a branch only together with the `ag` that reads it. With `--from`, it copies the parent's `local-files`, and copies those local files from the parent's folder.
 
 Every profile links into every Runtime mapping in `sync/runtimes.yaml` (ADR 0018). A `profile.yaml` with a `runtimes` line fails, and the message says to delete the line.
 
