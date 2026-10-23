@@ -29,7 +29,19 @@ Try the argument as a PR first, and fall back to an issue, as `docs/agents/issue
 4. Run `/code-review origin/main`. Apply every finding you can confirm in the code. Keep each finding you reject, with its reason, for the PR description. Mark a rejected finding **decision needed** when neither the spec nor the code settles it, so only the user can choose. Do one round, then rerun the tests the table requires.
 5. Run `git fetch origin` and merge `origin/main` again. When an ADR or a Profile migration this branch adds now shares its number with another one in its folder, stop and tell the user. The user renumbers by hand. Otherwise run `npm test` in `sync/` when the table requires it.
 6. Push the branch: `git push -u origin HEAD` the first time, `git push` after that.
-7. Open one PR into `main`. Write its description with `/gen-pr-desc`, add a section with the review findings you rejected and why, and end it with `Closes #<issue>`. Number the rejected findings. Write each one as `**Reviewer:** <what the reviewer says is wrong>. **Not applied because:** <your reason>.`, and start each one marked in step 4 with `(decision needed)`. Then stop. Your final message lists the `(decision needed)` findings by number, each with its options and your recommendation, and asks the user to choose. The user reviews and merges the PR.
+7. Open one PR into `main`. Write its description with `/gen-pr-desc`, add a section with the review findings you rejected and why, and end it with `Closes #<issue>`. Number the rejected findings. Write each one as `**Reviewer:** <what the reviewer says is wrong>. **Not applied because:** <your reason>.`, and start each one marked in step 4 with `(decision needed)`.
+8. Wait for the PR's checks on the branch's latest commit:
+   - Find its run with `gh run list --commit "$(git rev-parse HEAD)"`. Right after a push, the run can take a minute to appear, so look again for up to five minutes. When it still does not appear, stop and tell the user that CI is not checked.
+   - When your host can wake you when the checks finish, use that and end the turn. Otherwise run `gh pr checks <PR> --watch`. After a rerun, wait for the new attempt, not the old result.
+   - The checks pass when `ag tests result` succeeds. Its test jobs are skipped on purpose when the change touches only docs. Stop and tell the user about any other skipped or cancelled check.
+
+   When a check fails, read its log with `gh run view <run> --log-failed`:
+   - **The change caused it**, for example an assertion or an error in code this branch touched: fix it, rerun the tests the table requires, and commit. Review only the fix with `/code-review <the commit before the fix>`. Apply the findings you can confirm, rerun the tests, and commit them. Then push, and wait for the checks again.
+   - **The change did not cause it**, for example a runner or network error, a timeout, or a test that has nothing to do with the diff and passes locally: rerun only the failed jobs with `gh run rerun <run> --failed`, and wait for the checks again.
+   - **Unclear:** stop, and tell the user the failing lines and your guess at the cause.
+
+   Judge each new failure the same way. In this step, push at most two fixes and rerun at most once, counted across turns. When a check still fails after that, stop and tell the user. When a fix changes what the PR does, update the PR description with `/gen-pr-desc`. A fix of a test only does not.
+9. Stop. Your final message says whether every check passed, and lists your fix commits when there are any. It lists the `(decision needed)` findings by number, each with its options and your recommendation, and asks the user to choose. The user reviews and merges the PR.
 
 After `/to-tickets`, each ticket gets its own worktree and its own PR, which closes that ticket. The spec issue stays open until the user closes it after the last ticket.
 
@@ -39,7 +51,7 @@ After `/to-tickets`, each ticket gets its own worktree and its own PR, which clo
 2. Wait for the user's first message, which describes the change. Write no summary before it.
 3. Implement only when the user asks for it. Otherwise ask a follow-up question.
 4. To clarify the change, use `/grill-with-docs` directly. `/core-grill` runs `ag update`, which this worktree does not allow. The grilling is read-only, and keeps a list of planned doc changes instead of writing docs, as in `/core-grill`.
-5. Run step 1 of New work. Build what the user asked for as step 3 builds a spec, then run steps 4 to 6, which push to the PR's branch. Then update the PR description with `/gen-pr-desc`. Take `(decision needed)` off each finding the user has decided, and move a finding you then applied out of the rejected list. When the follow-up changes a decision in the spec, update the spec issue body too.
+5. Run step 1 of New work. Build what the user asked for as step 3 builds a spec, then run steps 4 to 6, which push to the PR's branch. Then update the PR description with `/gen-pr-desc`. Take `(decision needed)` off each finding the user has decided, and move a finding you then applied out of the rejected list. When the follow-up changes a decision in the spec, update the spec issue body too. Then run steps 8 and 9 of New work.
 
 ## Which steps a change needs
 
