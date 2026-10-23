@@ -1,6 +1,6 @@
 # Prior art
 
-Other tools already solve parts of what `ag` does. Before a design decision on sync, runtime mappings, or setup, check how these tools solve the same problem. Record what you took from them, or why you did not, in the issue or ADR of that decision.
+Other tools already solve parts of what `ag` does. Before a design decision on sync, runtime mappings, setup, or Profile migrations, check how these tools solve the same problem. Record what you took from them, or why you did not, in the issue or ADR of that decision.
 
 ## Prior art is not the source of truth
 
@@ -16,7 +16,7 @@ These tools show how others solved a similar problem. They are not the source of
 ## How to use this doc
 
 1. Find the problem in [Which tool to check](#which-tool-to-check).
-2. Read the finding it links to. Findings were checked on 2026-10-16, at the versions named in each tool's section.
+2. Read the finding it links to. The sync parity findings were checked on 2026-10-16. The findings on Profile migrations and link cleanup, and skillshare's cleanup of generated files, were checked on 2026-10-22. Checked versions are named beside the findings or in each tool's section.
 3. Open source files only when the finding does not answer the question. Read only the files the tool's "Where to look" table lists, through `gh api` or a shallow clone in a temporary folder.
 4. Tools and coding agents change fast. Before you use a finding in a decision, check that the tool has no newer release, and check the official docs it cites.
 
@@ -39,6 +39,8 @@ These tools show how others solved a similar problem. They are not the source of
 | Symlink or copy, and Windows | | skillshare, then skills-manager |
 | Path of each coding agent's skills folder | | skills-manager, then skillshare |
 | Hooks and MCP | | skillshare, then rulesync |
+| Profile migrations: level, stop and rerun, numbering | [Profile migrations and link cleanup](#findings-for-profile-migrations-and-link-cleanup-issue-8) | Copier, skills-manager, golang-migrate, Nx, then Flyway |
+| Removing old links in agent homes | [Old links](#old-links) | skillshare, GNU Stow, Home Manager, skills-manager, then Dotbot |
 
 ## Findings for sync parity (issue #2)
 
@@ -56,7 +58,7 @@ What the tools do:
 
 - **rulesync** folds every rule into the one `AGENTS.md`, because Codex has no rules folder. It writes only the body of each rule and drops its frontmatter, so `globs` do not reach Codex. The root rule goes first, then the other rules in source order, joined by one blank line. It warns when the project files pass 32 KiB. See [`codexcli-rule.ts`](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/rules/codexcli-rule.ts), [`nested-agentsmd-rule.ts` L164-L173](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/rules/nested-agentsmd-rule.ts#L164-L173), and the fold in [`rules-processor.ts` L2197-L2272](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/rules/rules-processor.ts#L2197-L2272).
 - **ruler** joins all its rule files into one text and puts `<!-- Source: <path> -->` before each one. `ruler revert` finds its own output by that marker. See [`RuleProcessor.ts`](https://github.com/intellectronica/ruler/blob/v0.3.44/src/core/RuleProcessor.ts).
-- **skillshare** does not convert rules for Codex. Its `prepend` and `append` modes write the content of a source file into another file, between `<!-- skillshare:extra src="<path>" sha256=<hash> -->` and `<!-- /skillshare:extra -->`. One file can hold several blocks. The hash tells a hand edit from a source update, and sync stops instead of overwriting a block that was edited by hand. See [`extras_block.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/extras_block.go).
+- **skillshare** does not convert rules for Codex. Its `prepend` and `append` modes write the content of a source file into another file, between `<!-- skillshare:extra src="<path>" sha256=<hash> -->` and `<!-- /skillshare:extra -->`. One file can hold several blocks. The hash tells a hand edit from a source update, and sync stops instead of overwriting a block that was edited by hand. See [`extras_block.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extras_block.go).
 
 Compared with issue #2: the issue keeps each rule's `globs` or `paths` in the Codex text, so the model can judge whether a rule applies. rulesync drops them. Both are options; rulesync's choice is not a reason to drop them.
 
@@ -71,10 +73,10 @@ What Cursor does:
 
 What the tools do:
 
-- **skillshare** and **rulesync** both treat Cursor as having no global rules file. skillshare leaves Cursor out of shared instructions because "its user rules live in Cursor's settings" ([sharing-instructions.md](https://github.com/runkids/skillshare/blob/v0.25.13/website/docs/how-to/daily-tasks/sharing-instructions.md)). rulesync marks Cursor rules as project only ([`rules-processor.ts` L809-L819](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/rules/rules-processor.ts#L809-L819)). Both disagree with the Cursor help page. `ag` already links rules into `~/.cursor/rules/`, so confirm in a real Cursor that a rule there loads before building on it.
+- **skillshare** and **rulesync** both treat Cursor as having no global rules file. skillshare leaves Cursor out of shared instructions because "its user rules live in Cursor's settings" ([sharing-instructions.md](https://github.com/runkids/skillshare/blob/v0.26.2/website/docs/how-to/daily-tasks/sharing-instructions.md)). rulesync marks Cursor rules as project only ([`rules-processor.ts` L809-L819](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/rules/rules-processor.ts#L809-L819)). Both disagree with the Cursor help page. `ag` already links rules into `~/.cursor/rules/`, so confirm in a real Cursor that a rule there loads before building on it.
 - No tool makes a Cursor rule from a global `AGENTS.md`. **ruler** writes a project `AGENTS.md` for Cursor ([`CursorAgent.ts`](https://github.com/intellectronica/ruler/blob/v0.3.44/src/agents/CursorAgent.ts)), which does not apply at global scope.
-- **skillshare** knows which instruction file each coding agent reads, in which order, and whether it follows `@` imports. Claude does. Codex and Cursor do not. The table is in [sharing-instructions.md](https://github.com/runkids/skillshare/blob/v0.25.13/website/docs/how-to/daily-tasks/sharing-instructions.md), and the data in [`internal/config/targets.yaml`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/config/targets.yaml).
-- **skillshare** moves `CLAUDE.md` text into an `AGENTS.md` and keeps a managed block of `@` lines in `CLAUDE.md`: `<!-- skillshare:instructions:begin -->` … `<!-- skillshare:instructions:end -->`. Claude strips block-level HTML comments, so the markers cost no context. See [`internal/instructions/convert.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/instructions/convert.go) and [`extras_file.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/extras_file.go).
+- **skillshare** knows which instruction file each coding agent reads, in which order, and whether it follows `@` imports. Claude does. Codex and Cursor do not. The table is in [sharing-instructions.md](https://github.com/runkids/skillshare/blob/v0.26.2/website/docs/how-to/daily-tasks/sharing-instructions.md), and the data in [`internal/config/targets.yaml`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/config/targets.yaml).
+- **skillshare** moves `CLAUDE.md` text into an `AGENTS.md` and keeps a managed block of `@` lines in `CLAUDE.md`: `<!-- skillshare:instructions:begin -->` … `<!-- skillshare:instructions:end -->`. Claude strips block-level HTML comments, so the markers cost no context. See [`internal/instructions/convert.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/instructions/convert.go) and [`extras_file.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extras_file.go).
 
 Compared with issue #2: the issue leaves open how the generated rule gets the instructions to Cursor, and asks the grilling session for options. The prior art adds these, next to the issue's own and any the agent proposes: copy the whole text into the rule (rulesync, ruler); a managed block with a source path and hash (skillshare `prepend`); or an `@` line, which Cursor does not inline.
 
@@ -92,7 +94,7 @@ What the tools do:
 - **rulesync** maps a skill's `disable-model-invocation: true` to a generated `agents/openai.yaml` with `policy.allow_implicit_invocation: false`. An explicit `codexcli.policy` value wins. See [`codexcli-skill.ts` L53-L100](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/skills/codexcli-skill.ts#L53-L100).
 - **rulesync** turns each command into a generated `<slug>/SKILL.md` folder for coding agents that have no commands (Devin, Hermes Agent). The slug is the file name without `.md`, with every character outside `a-zA-Z0-9_-` replaced by `-`. A folder that matches a command is owned by the commands feature, so the skills cleanup neither imports nor deletes it. See [`command-skill-ownership.ts`](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/commands/command-skill-ownership.ts) and [`devin-command.ts`](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/commands/devin-command.ts).
 - **rulesync** writes Codex commands to `~/.codex/prompts/` ([`codexcli-command.ts`](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/commands/codexcli-command.ts)). Codex does not read them.
-- **skillshare** does not turn commands into skills. Its `gemini-commands` extension shows a command converted to another format at sync time ([`extensions/`](https://github.com/runkids/skillshare/tree/v0.25.13/extensions)).
+- **skillshare** does not turn commands into skills. Its `gemini-commands` extension shows a command converted to another format at sync time ([`extensions/`](https://github.com/runkids/skillshare/tree/v0.26.2/extensions)).
 
 Compared with issue #2: the issue proposes linking each command into Codex as a skill, and a mechanism that adds the missing invocation configuration to the original command. Cursor and Claude both move commands to user-invoked skills, which matches the long-term idea in `docs/runtime-support.md`. Then a command stored as a skill with `disable-model-invocation: true` would need only a generated `agents/openai.yaml` for Codex. Weigh both against the open question in the issue about how a command file becomes a skill folder.
 
@@ -127,14 +129,15 @@ What follows from the docs:
 
 What the tools do:
 
-- **skillshare** `codex-agents` writes `name` (or the file name), `description`, and `model`, and puts the Markdown body in `developer_instructions`. It drops other keys and stops with an error when a required value is empty. It passes `model` through unchanged, so a Claude alias such as `sonnet` would reach Codex. See [`extensions/codex-agents/convert.js`](https://github.com/runkids/skillshare/blob/v0.25.13/extensions/codex-agents/convert.js).
+- **skillshare** `codex-agents` writes `name` (or the file name), `description`, and `model`, and puts the Markdown body in `developer_instructions`. It drops other keys and stops with an error when a required value is empty. It passes `model` through unchanged, so a Claude alias such as `sonnet` would reach Codex. See [`extensions/codex-agents/convert.js`](https://github.com/runkids/skillshare/blob/v0.26.2/extensions/codex-agents/convert.js).
 - **ruler** drops `model: inherit`, passes other models through, and maps `readonly: true` to `sandbox_mode = "read-only"`. Codex docs say a subagent file cannot override `sandbox_mode`, so that mapping may do nothing. See [`SubagentsProcessor.ts` L270-L286](https://github.com/intellectronica/ruler/blob/v0.3.44/src/core/SubagentsProcessor.ts#L270-L286).
 - **rulesync** keeps fields only Codex knows in a `codexcli:` section of the canonical subagent, and drops `short-description`, which Codex rejects. See [`codexcli-subagent.ts`](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/subagents/codexcli-subagent.ts).
 
 ### Generated files
 
-- **skillshare** writes generated files straight into the agent folder, as copies. It lists them in `.skillshare-manifest.json` in that folder, and orphan cleanup removes only copies it wrote that nobody edited. Shared instruction files live in its own source folder, `~/.config/skillshare/extras/<name>/AGENTS.md`. It keeps the last 10 versions of each file it changes in `~/.local/state/skillshare/extras/backups/`. See [`manifest.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/manifest.go) and [`extras.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/extras.go).
-- **skillshare** has an ownership rule for one target file: a link or a copy owns the whole file, and only `import`, `prepend`, and `append` can share it with other sources. It checks this before it writes anything. Compare it with the Collision of ADR 0017. See [`extras_connections.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/config/extras_connections.go).
+- **skillshare** writes generated subagents into the agent folder as copies. It records them in `.skillshare-manifest.json`, and orphan cleanup keeps files that were edited. The same rule covers the copies it makes when file symlinks are not available. Directory extras in explicit copy mode, extension output included, have no manifest, and their orphans are not removed. Copied skill folders have a manifest, but their orphan cleanup does not check for edits. See [`agent_sync.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/agent_sync.go), [`filelink.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/filelink.go#L56-L165), [`extras.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extras.go), and [`copy.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/copy.go#L297-L357).
+- **skillshare** keeps shared instruction sources in `~/.config/skillshare/extras/<name>/AGENTS.md`. Its extras backup keeps up to 10 versions of each file it replaces in `~/.local/state/skillshare/extras/backups/`. See [`extras_file.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extras_file.go) and [`extras_backup.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extras_backup.go).
+- **skillshare** has an ownership rule for one target file: a link or a copy owns the whole file, and only `import`, `prepend`, and `append` can share it with other sources. It checks this before it writes anything. Compare it with the Collision of ADR 0017. See [`extras_connections.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/config/extras_connections.go).
 - **rulesync** writes generated files straight into each agent home, with no folder in between. It follows symlinks in its sources and copies their content into the output. With `delete: true` it removes every skill folder in a target that it did not generate, even ones from other installers. It never removes symlinks or hidden entries. See [global-mode.md](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/docs/guide/global-mode.md).
 - **ruler** writes straight into the target, keeps `.bak` backups, and finds its own output by the `<!-- Source: -->` markers on revert ([`revert-engine.ts`](https://github.com/intellectronica/ruler/blob/v0.3.44/src/core/revert-engine.ts)).
 
@@ -144,11 +147,66 @@ Compared with issue #2: no tool keeps generated files in a folder of their own a
 
 - **rulesync** has its own canonical format for every kind: `.rulesync/rules/`, `commands/`, `subagents/`, and `skills/`. Shared fields sit at the top of the frontmatter, and each coding agent has its own section, such as `cursor:`, `claudecode:`, and `codexcli:`, that overrides them. It has one adapter per coding agent per kind, `src/features/<kind>/<agent>-<kind>.ts`, and it can import any agent's files back into the canonical format. See [file-formats.md](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/docs/reference/file-formats.md).
 - **ruler** uses plain Markdown for rules and Claude- or Cursor-style frontmatter for subagents, with one adapter per coding agent ([`src/agents/`](https://github.com/intellectronica/ruler/tree/v0.3.44/src/agents)).
-- **skillshare** has no canonical format. It passes files through unchanged and leaves translation to extensions at the edge. For a file that one coding agent cannot read, it suggests a second copy limited to that agent with `targets:` ([agents.md](https://github.com/runkids/skillshare/blob/v0.25.13/website/docs/understand/agents.md)).
+- **skillshare** has no canonical format. It passes files through unchanged and leaves translation to extensions at the edge. For a file that one coding agent cannot read, it suggests a second copy limited to that agent with `targets:` ([agents.md](https://github.com/runkids/skillshare/blob/v0.26.2/website/docs/understand/agents.md)).
+
+## Findings for Profile migrations and link cleanup (issue #8)
+
+These findings were checked on 2026-10-22. They compare the tools with issue #8's per-profile Migration level and its scan for links into the store. They are evidence, not recommendations.
+
+### Migration level
+
+- **Copier v9.19.1** records the template revision as `_commit` in `.copier-answers.yml`. The revision travels with the generated project. See [configuring.md](https://github.com/copier-org/copier/blob/v9.19.1/docs/configuring.md).
+- **skills-manager v1.42.0** stores one migration counter in SQLite's `user_version`. Each step updates the counter in the same transaction as its changes. See [`migrations.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/core/migrations.rs).
+- **golang-migrate v4.20.1** stores the current version and a dirty flag in the PostgreSQL driver's `schema_migrations` table. See [`postgres.go`](https://github.com/golang-migrate/migrate/blob/v4.20.1/database/postgres/postgres.go).
+
+Compared with issue #8: these tools record progress beside the data being migrated. Copier uses a Git revision. The other two use a number. Issue #8 commits a number in each profile's `profile.yaml`.
+
+Other tools detect the old shape instead of storing a level:
+
+- **skillshare v0.26.2** checks whether legacy directories exist and whether their destinations already exist. See [`migrate.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/config/migrate.go).
+- **VS Code 1.105.0** runs registered transformations for existing setting values. See [`configuration.ts`](https://github.com/microsoft/vscode/blob/1.105.0/src/vs/workbench/common/configuration.ts#L57-L176).
+- **Renovate 41.0.0** selects config transformations by property name and value. See [`migrations-service.ts`](https://github.com/renovatebot/renovate/blob/41.0.0/lib/config/migrations/migrations-service.ts).
+
+### Stop, crash, and rerun
+
+- **chezmoi** records successful script runs in local persistent state. Its docs say every script should be idempotent, including `run_once_` and `run_onchange_`. See [scripts](https://www.chezmoi.io/user-guide/use-scripts-to-perform-actions/).
+- **golang-migrate v4.20.1** leaves a dirty flag after a failure and blocks further migrations. A person fixes the database and uses `force` to set its recorded version. See [FAQ.md](https://github.com/golang-migrate/migrate/blob/v4.20.1/FAQ.md).
+- **Flyway** repairs history records with `repair`. Database objects left by a failed migration still need manual cleanup. See [repair](https://documentation.red-gate.com/flyway/reference/commands/repair).
+- **Nx v24 docs** separate generating `migrations.json` from running it. They support review and rerunning, and describe manual Git recovery after a failure. See [updating dependencies](https://nx.dev/docs/features/automate-updating-dependencies) and [advanced updates](https://nx.dev/docs/guides/tips-n-tricks/advanced-update).
+
+Compared with issue #8: idempotent scripts make a rerun safe. Nx gives a person the changes to review and complete. These sources do not show issue #8's split between a stop that leaves partial output and a crash that resets the folder.
+
+### Numbering and fixed content
+
+- **Flyway** rejects duplicate migration versions. **golang-migrate v4.20.1** rejects duplicate versions in the same direction. See [Flyway error codes](https://documentation.red-gate.com/flyway/reference/usage/error-codes) and [`iofs.go`](https://github.com/golang-migrate/migrate/blob/v4.20.1/source/iofs/iofs.go#L47-L73).
+- **Alembic 1.20.1** uses `down_revision` links and merge revisions. **Django 5.2** orders migrations through dependencies. Their graphs can hold concurrent branches without one shared sequence. See [Alembic branches](https://alembic.sqlalchemy.org/en/latest/branches.html) and [Django dependencies](https://docs.djangoproject.com/en/5.2/topics/migrations/#dependencies).
+- **Rails v8.0.3** uses timestamps by default and also rejects duplicate versions. See [`migration.rb`](https://github.com/rails/rails/blob/v8.0.3/activerecord/lib/active_record/migration.rb).
+- **GitHub** can require an up-to-date branch or run required checks through a merge queue. Those checks can test that migration numbers stay unique once changes are combined. GitHub does not assign the numbers. See [branch protection](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging) and [merge queues](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue).
+- **Flyway** records checksums and fails validation when the content of an applied migration changes. See [validate](https://documentation.red-gate.com/flyway/reference/commands/validate).
+
+Compared with issue #8: duplicate checks fit its numbered modules. Graphs and timestamps order migrations another way. Flyway enforces unchanged content with checksums. Issue #8 fixes numbers and content after merge, and puts a correction in a new migration.
+
+### Pending migration check
+
+- **Rails v8.0.3** raises `ActiveRecord::PendingMigrationError` when its pending check finds unapplied migrations. `maintain_test_schema!` can load the test schema before checking. See [`migration.rb`](https://github.com/rails/rails/blob/v8.0.3/activerecord/lib/active_record/migration.rb#L690-L743).
+- **Django 5.2.7** checks migrations when `runserver` starts, prints a warning about unapplied migrations, and keeps running. See [`runserver.py`](https://github.com/django/django/blob/5.2.7/django/core/management/commands/runserver.py#L135-L137) and [`base.py`](https://github.com/django/django/blob/5.2.7/django/core/management/base.py#L579-L610).
+
+These show both a blocking check and a warning. Neither runs migrations as part of every ordinary command.
+
+### Old links
+
+- **Home Manager release-25.05** compares the previous generation's file list with the new generation. It removes a missing entry only while its link still points into a Home Manager generation. See [`files.nix`, checked commit](https://github.com/nix-community/home-manager/blob/44831a7eaba4360fb81f2acc5ea6de5fde90aaa3/modules/files.nix#L139-L234).
+- **skills-manager v1.42.0** removes deployments through saved target records. A real directory that replaced a recorded symlink survives cleanup. See [`sync_engine.rs`](https://github.com/xingkongliang/skills-manager/blob/v1.42.0/src-tauri/src/core/sync_engine.rs#L475-L520).
+- **skillshare v0.26.2** scans extras targets for stale links into the source. Its skill-folder cleanup also uses manifest records, with separate rules for broken and external links. See [`extras.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extras.go#L501-L565) and [`sync.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/sync.go#L750-L935).
+- **GNU Stow v2.4.1** knows its links by their destination in a stow package. `-D` removes links, and `-R` removes and then recreates them. Its normal scan follows the package's directories. `--compat` scans the whole target tree. See [manual source](https://github.com/aspiers/stow/blob/v2.4.1/doc/stow.texi).
+- **Dotbot v1.24.1** removes dead links into the dotfiles directory. `recursive` widens the walk. `force` also removes dead links that point elsewhere. It leaves live links that are no longer wanted. See [Clean](https://github.com/anishathalye/dotbot/blob/v1.24.1/README.md#clean).
+- **rulesync v36.0.2** skips symlinks in global skill cleanup. **ruler v0.3.44** reverts generated project files and refuses symlinked output paths. See [global mode](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/docs/guide/global-mode.md#delete-and-shared-user-scope-directories) and [`revert-engine.ts`](https://github.com/intellectronica/ruler/blob/v0.3.44/src/core/revert-engine.ts).
+
+Compared with issue #8: Home Manager and skills-manager list previous deployments. Stow and skillshare extras know their links by destination. Issue #8 also goes by destination, scans two levels without following symlinked folders, and remembers Agent homes on each computer. These sources do not show that scan depth or the remembered homes.
 
 ## skillshare
 
-[runkids/skillshare](https://github.com/runkids/skillshare), MIT license, written in Go. Checked at v0.25.13.
+[runkids/skillshare](https://github.com/runkids/skillshare), MIT license, written in Go. Checked at v0.26.2.
 
 A CLI, with a separate desktop app, that syncs one source into many coding agents. It has a global mode and a project mode.
 
@@ -167,19 +225,19 @@ Where to look:
 
 | Problem | Files |
 |---|---|
-| Rules and commands (extras) | [`internal/sync/extras*.go`](https://github.com/runkids/skillshare/tree/v0.25.13/internal/sync), [`cmd/skillshare/extras*.go`](https://github.com/runkids/skillshare/tree/v0.25.13/cmd/skillshare), [`ai_docs/tests/extras_commands_runbook.md`](https://github.com/runkids/skillshare/blob/v0.25.13/ai_docs/tests/extras_commands_runbook.md) |
-| Managed blocks in a shared file (`prepend`, `append`) | [`internal/sync/extras_block.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/extras_block.go) |
-| Single-file extras and the `@` import block | [`internal/sync/extras_file.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/extras_file.go), [`internal/config/extras_connections.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/config/extras_connections.go) |
-| Extensions that convert files | [`extensions/README.md`](https://github.com/runkids/skillshare/blob/v0.25.13/extensions/README.md), [`internal/sync/extension.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/extension.go) |
-| Subagents and Codex TOML | [`extensions/codex-agents/`](https://github.com/runkids/skillshare/tree/v0.25.13/extensions/codex-agents), [`internal/sync/agent_sync.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/agent_sync.go), [`internal/resource/agent.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/resource/agent.go), [`website/docs/understand/agents.md`](https://github.com/runkids/skillshare/blob/v0.25.13/website/docs/understand/agents.md) |
-| Instruction files and `CLAUDE.md` to `AGENTS.md` | [`internal/instructions/`](https://github.com/runkids/skillshare/tree/v0.25.13/internal/instructions), [`website/docs/how-to/daily-tasks/sharing-instructions.md`](https://github.com/runkids/skillshare/blob/v0.25.13/website/docs/how-to/daily-tasks/sharing-instructions.md) |
-| Paths each coding agent reads | [`internal/config/targets.yaml`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/config/targets.yaml) |
-| Copies it wrote, and cleanup | [`internal/sync/manifest.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/manifest.go), [`internal/sync/extras.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/extras.go) |
-| Detecting coding agents, first setup | [`cmd/skillshare/init_detect.go`](https://github.com/runkids/skillshare/blob/v0.25.13/cmd/skillshare/init_detect.go), [`cmd/skillshare/init_flow.go`](https://github.com/runkids/skillshare/blob/v0.25.13/cmd/skillshare/init_flow.go), [`internal/config/targets.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/config/targets.go) |
-| Bringing files back from coding agents | [`cmd/skillshare/collect*.go`](https://github.com/runkids/skillshare/tree/v0.25.13/cmd/skillshare) |
-| Symlinks, copies, and Windows | [`internal/sync/symlink_unix.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/symlink_unix.go), [`internal/sync/symlink_windows.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/symlink_windows.go), [`internal/sync/copy.go`](https://github.com/runkids/skillshare/blob/v0.25.13/internal/sync/copy.go) |
-| MCP | [`internal/mcp/`](https://github.com/runkids/skillshare/tree/v0.25.13/internal/mcp) |
-| Hooks | [`internal/hooks/`](https://github.com/runkids/skillshare/tree/v0.25.13/internal/hooks) |
+| Rules and commands (extras) | [`internal/sync/extras*.go`](https://github.com/runkids/skillshare/tree/v0.26.2/internal/sync), [`cmd/skillshare/extras*.go`](https://github.com/runkids/skillshare/tree/v0.26.2/cmd/skillshare), [`ai_docs/tests/extras_commands_runbook.md`](https://github.com/runkids/skillshare/blob/v0.26.2/ai_docs/tests/extras_commands_runbook.md) |
+| Managed blocks in a shared file (`prepend`, `append`) | [`internal/sync/extras_block.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extras_block.go) |
+| Single-file extras and the `@` import block | [`internal/sync/extras_file.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extras_file.go), [`internal/config/extras_connections.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/config/extras_connections.go) |
+| Extensions that convert files | [`extensions/README.md`](https://github.com/runkids/skillshare/blob/v0.26.2/extensions/README.md), [`internal/sync/extension.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extension.go) |
+| Subagents and Codex TOML | [`extensions/codex-agents/`](https://github.com/runkids/skillshare/tree/v0.26.2/extensions/codex-agents), [`internal/sync/agent_sync.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/agent_sync.go), [`internal/resource/agent.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/resource/agent.go), [`website/docs/understand/agents.md`](https://github.com/runkids/skillshare/blob/v0.26.2/website/docs/understand/agents.md) |
+| Instruction files and `CLAUDE.md` to `AGENTS.md` | [`internal/instructions/`](https://github.com/runkids/skillshare/tree/v0.26.2/internal/instructions), [`website/docs/how-to/daily-tasks/sharing-instructions.md`](https://github.com/runkids/skillshare/blob/v0.26.2/website/docs/how-to/daily-tasks/sharing-instructions.md) |
+| Paths each coding agent reads | [`internal/config/targets.yaml`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/config/targets.yaml) |
+| Copies it wrote, and cleanup | [`internal/sync/manifest.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/manifest.go), [`internal/sync/filelink.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/filelink.go), [`internal/sync/agent_sync.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/agent_sync.go), [`internal/sync/extras.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/extras.go), [`internal/sync/copy.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/copy.go), [`internal/sync/sync.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/sync.go) |
+| Detecting coding agents, first setup | [`cmd/skillshare/init_detect.go`](https://github.com/runkids/skillshare/blob/v0.26.2/cmd/skillshare/init_detect.go), [`cmd/skillshare/init_flow.go`](https://github.com/runkids/skillshare/blob/v0.26.2/cmd/skillshare/init_flow.go), [`internal/config/targets.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/config/targets.go) |
+| Bringing files back from coding agents | [`cmd/skillshare/collect*.go`](https://github.com/runkids/skillshare/tree/v0.26.2/cmd/skillshare) |
+| Symlinks, copies, and Windows | [`internal/sync/symlink_unix.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/symlink_unix.go), [`internal/sync/symlink_windows.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/symlink_windows.go), [`internal/sync/copy.go`](https://github.com/runkids/skillshare/blob/v0.26.2/internal/sync/copy.go) |
+| MCP | [`internal/mcp/`](https://github.com/runkids/skillshare/tree/v0.26.2/internal/mcp) |
+| Hooks | [`internal/hooks/`](https://github.com/runkids/skillshare/tree/v0.26.2/internal/hooks) |
 
 ## rulesync
 

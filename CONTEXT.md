@@ -43,8 +43,22 @@ The git branch that carries one profile, named after it. It also carries the fol
 _Avoid_: Pack branch, environment branch
 
 **Profile skeleton**:
-What `ag new` always writes for a new profile: `profile.yaml` and the five `artifacts/<kind>-profile-me/` folders. A Root profile that is not a Clean profile also gets both Global instructions files: an empty `AGENTS.md`, and a `CLAUDE.md` that imports it with `@~/.claude/AGENTS.md`. Everything else in a profile folder is added later, only to extend the Lineage.
+What `ag new` always writes for a new profile: `profile.yaml` and the five `artifacts/<kind>-profile-me/` folders. A Root profile that is not a Clean profile also gets both Global instructions files: an empty `AGENTS.md`, and a `CLAUDE.md` that imports it with `@~/.claude/AGENTS.md`. Everything else in a profile folder is added later, only to extend the Lineage. The skeleton starts at the Core migration level of the running `ag`. When `main` has newer migrations, the final `ag update` of `ag new` runs them on the new profile.
 _Avoid_: Profile template, copying the parent's folder
+
+**Profile migration**:
+A numbered change from Core that brings one profile's committed files into the layout Core expects. It is a module in `sync/migrations/`, and `ag update` runs it on each Lineage branch after that branch merges its parent. It is the last resort: when Core can derive what a coding agent needs at sync time, it does that instead.
+_Avoid_: Schema version, upgrade
+
+**Migration level**:
+The layout level of a profile's files, kept as `migration-level` in its `profile.yaml`. A missing key means level 0. It is not a count of the migrations that ran, because a new profile starts at the level of the `ag` that created it.
+_Avoid_: Version, schema version
+
+**Core migration level**:
+The number of the newest Profile migration in the Core of one checkout. It is read from that checkout's files, never from `origin`.
+
+**Migration pending**:
+A profile on its own branch is below that branch's Core migration level. Sync refuses until `ag update` runs the missing migrations.
 
 **Clean profile**:
 A Root profile with `clean: true` in its `profile.yaml`. It links no store artifacts. Created from the Core branch, it links nothing into any coding agent. It is for benchmarks and simple tests. `ag new <name> --clean` creates one.
@@ -59,7 +73,7 @@ A profile whose commits must never leave the machine. A push that contains any o
 _Avoid_: Private profile, local-only profile, no-push branch
 
 **Local files**:
-A profile's files that are never committed, such as machine-local settings. Its `profile.yaml` lists them under `local-files`. `ag new --from` copies the parent's local files into the child, and `ag sync` keeps them out of git on every branch.
+A profile's files that are never committed, such as machine-local settings. Its `profile.yaml` lists them under `local-files`. `ag new --from` copies the parent's local files into the child, and `ag sync` keeps them out of git on every branch. A Profile migration never changes them.
 _Avoid_: Env files, machine setup, secrets
 
 **Setup skill**:
@@ -103,7 +117,7 @@ A worktree of the store, other than `~/.agents` and the Edit worktree, where one
 _Avoid_: feature worktree, T3 worktree
 
 **Profile impact**:
-The spec section that says which profile files a Core change needs to change, and the migration it needs, or "none".
+The spec section that says which profile files a Core change needs to change, or "none". When it names files, it also names the Profile migration that changes them, and that migration ships with its test in the same change.
 
 **Core-owner artifact**:
 A Store artifact that `ag sync` links only in a store that owns its Core. It lives in `artifacts/<kind>-core-me/`.

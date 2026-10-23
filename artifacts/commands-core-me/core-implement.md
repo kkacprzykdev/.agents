@@ -25,8 +25,9 @@ Try the argument as a PR first, and fall back to an issue, as `docs/agents/issue
    - Make every item in the issue's Implementation Decisions and Planned doc changes sections.
    - Run `/tdd` with the seams from the issue's Testing Decisions. They are agreed, so `/tdd` does not ask about them again.
    - When `ag` needs a new Core file, add it to `CORE_FILES` in `sync/test/world.mjs`, so the tests copy it.
+   - When the issue's Profile impact names a Profile migration, add it to `sync/migrations/` with the next free number, and test it on a profile fixture under `sync/test/fixtures/`. Never edit a real profile.
 4. Run `/code-review origin/main`. Apply every finding you can confirm in the code. Keep each finding you reject, with its reason, for the PR description. Mark a rejected finding **decision needed** when neither the spec nor the code settles it, so only the user can choose. Do one round, then rerun the tests the table requires.
-5. Run `git fetch origin` and merge `origin/main` again. When an ADR this branch adds now shares its number with another ADR in its folder, stop and tell the user. The user renumbers by hand. Otherwise run `npm test` in `sync/` when the table requires it.
+5. Run `git fetch origin` and merge `origin/main` again. When an ADR or a Profile migration this branch adds now shares its number with another one in its folder, stop and tell the user. The user renumbers by hand. Otherwise run `npm test` in `sync/` when the table requires it.
 6. Push the branch: `git push -u origin HEAD` the first time, `git push` after that.
 7. Open one PR into `main`. Write its description with `/gen-pr-desc`, add a section with the review findings you rejected and why, and end it with `Closes #<issue>`. Number the rejected findings. Write each one as `**Reviewer:** <what the reviewer says is wrong>. **Not applied because:** <your reason>.`, and start each one marked in step 4 with `(decision needed)`. Then stop. Your final message lists the `(decision needed)` findings by number, each with its options and your recommendation, and asks the user to choose. The user reviews and merges the PR.
 

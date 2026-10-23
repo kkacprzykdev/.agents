@@ -16,7 +16,7 @@ function runScript(script, scriptArgs) {
 }
 
 const status = runScript("ag.mjs", args);
-const syncs = ["sync", "update", "use"].includes(args[0]) || (args[0] === "skills" && args[1] === "add");
+const syncs = ["sync", "update", "use", "new"].includes(args[0]) || (args[0] === "skills" && args[1] === "add");
 if (status !== 0 || !syncs || args.includes("--dry-run")) {
   process.exit(status);
 }

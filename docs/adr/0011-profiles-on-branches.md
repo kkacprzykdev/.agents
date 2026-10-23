@@ -14,4 +14,4 @@ Every profile's artifacts have history. Checking out a branch physically removes
 
 ## Consequences
 
-Core changes happen on `main` and reach profiles only through merges. Maintenance is a little heavier, which is accepted in exchange for isolation. `ag update` does the merges.
+Core changes happen on `main` and reach profiles only through merges, and through the Profile migrations that run after them when a Core change moves where a profile keeps its files (ADR 0030). Maintenance is a little heavier, which is accepted in exchange for isolation. `ag update` does the merges.
