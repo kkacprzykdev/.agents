@@ -110,7 +110,7 @@ The first terminal runs everything through `node`, because the Launcher's folder
 
 Plain `ag` works in a new terminal after that. A GUI app or an agent shell that reads no shell startup file needs both the Launcher's folder and `node` on its `PATH`.
 
-`ag` warns about every other `ag` command on `PATH` that runs this store, such as an old `npm link`, and prints `npm rm -g ag` to remove it, run with that `node` version. It also warns when another tool named `ag`, such as The Silver Searcher, comes before the Launcher on `PATH`. It never deletes either.
+`ag` warns about every folder on `PATH` that holds an old `npm link` of `ag`, or another link to this store's `ag`. To remove it, run `npm rm -g ag` with that folder's `node` version, then delete any `ag` file it leaves there, as the warning says. Once the package has no `bin` entry, `npm rm -g ag` no longer deletes the `ag` link itself. It also warns when another tool named `ag`, such as The Silver Searcher, comes before the Launcher on `PATH`. It never deletes either.
 
 `ag new <name>` creates your first profile and links its artifacts into your agents. `ag update` keeps bringing Core changes from `upstream` down to it. Add `--protect` to `ag new` to keep the profile on this computer only.
 

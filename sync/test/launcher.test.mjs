@@ -155,30 +155,62 @@ function pathWith(...dirs) {
   return [...dirs, world.bin, dirname(process.execPath), gitCore].join(delimiter);
 }
 
-// A folder under the test base, holding one ag command that is not the Launcher.
-function otherAg(folder, { linkTo } = {}) {
+// A folder under the test base, holding a foreign ag command, such as The Silver Searcher.
+function otherAg(folder) {
   const dir = join(world.base, folder);
   mkdirSync(dir, { recursive: true });
-  if (linkTo) {
-    symlinkSync(linkTo, join(dir, "ag"), "file");
-  } else {
-    const name = WINDOWS ? "ag.cmd" : "ag";
-    writeFileSync(join(dir, name), WINDOWS ? "@echo silver searcher\r\n" : "#!/bin/sh\necho silver searcher\n");
-    chmodSync(join(dir, name), 0o755);
-  }
+  const name = WINDOWS ? "ag.cmd" : "ag";
+  writeFileSync(join(dir, name), WINDOWS ? "@echo silver searcher\r\n" : "#!/bin/sh\necho silver searcher\n");
+  chmodSync(join(dir, name), 0o755);
   return dir;
 }
 
-test("ag sync warns about an ag that runs this store's ag outside the Launcher, wherever it is on PATH", () => {
+// An npm link as npm makes it: <prefix>/bin/ag links to ../lib/node_modules/ag/bin/ag.mjs, and node_modules/ag
+// links to the store's sync/. npm rm -g ag on a package with no bin entry removes only node_modules/ag.
+function npmLink(prefix, { leftover = false } = {}) {
+  const modules = join(world.base, prefix, "lib", "node_modules");
+  const bin = join(world.base, prefix, "bin");
+  mkdirSync(modules, { recursive: true });
+  mkdirSync(bin, { recursive: true });
+  if (!leftover) {
+    symlinkSync(join(world.store, "sync"), join(modules, "ag"), WINDOWS ? "junction" : "dir");
+  }
+  symlinkSync(join("..", "lib", "node_modules", "ag", "bin", "ag.mjs"), join(bin, "ag"), "file");
+  return bin;
+}
+
+const npmLinkWarning = (bin) =>
+  `warning: ${bin} holds an old npm link of ag, or another link to this store's ag. Remove it: run npm rm -g ag with the Node version of ${bin}, then delete ${WINDOWS ? `any ag, ag.cmd, and ag.ps1 still in ${bin}` : `${join(bin, "ag")} if it is still there`}.`;
+
+test("ag sync warns about an npm link of ag wherever it is on PATH, and says how to remove it", () => {
   createDefault(world);
-  const npmBin = otherAg("npm-bin", { linkTo: storeAg() });
+  const bin = npmLink("nvm-node");
 
-  const output = ok(world.ag(["sync"], { env: { PATH: pathWith(launcherDir(), npmBin) } }));
+  const output = ok(world.ag(["sync"], { env: { PATH: pathWith(launcherDir(), bin) } }));
 
-  assert.ok(
-    output.includes(`warning: ${join(npmBin, "ag")} also runs this store's ag, beside the Launcher. It may be an old npm link. Remove it with npm rm -g ag, run with the Node version of ${npmBin}.`),
-    output,
-  );
+  assert.ok(output.includes(npmLinkWarning(bin)), output);
+});
+
+test("ag sync warns about the link that npm rm -g ag leaves behind once the package has no bin entry", () => {
+  createDefault(world);
+  const bin = npmLink("nvm-node", { leftover: true });
+
+  const output = ok(world.ag(["sync"], { env: { PATH: pathWith(launcherDir(), bin) } }));
+
+  assert.ok(output.includes(npmLinkWarning(bin)), output);
+});
+
+test("on Windows, ag sync warns once about the files of an npm link that npm rm -g ag leaves behind", { skip: !WINDOWS }, () => {
+  createDefault(world);
+  const npm = join(world.base, "npm");
+  mkdirSync(npm);
+  writeFileSync(join(npm, "ag"), '#!/bin/sh\nexec node "$basedir/node_modules/ag/bin/ag.mjs" "$@"\n');
+  writeFileSync(join(npm, "ag.cmd"), '@"%_prog%" "%dp0%\\node_modules\\ag\\bin\\ag.mjs" %*\r\n');
+
+  const output = ok(world.ag(["sync"], { env: { PATH: pathWith(npm, launcherDir()) } }));
+
+  assert.equal(output.split(npmLinkWarning(npm)).length, 2, output);
+  assert.doesNotMatch(output, /is another ag command/);
 });
 
 test("ag sync warns about a foreign ag before the Launcher on PATH, and not about one after it", () => {
@@ -198,16 +230,16 @@ test("ag sync warns about a foreign ag before the Launcher on PATH, and not abou
 
 test("ag status shows the Launcher, its target, whether its folder is on PATH, and the other ag commands", () => {
   createDefault(world);
-  const npmBin = otherAg("npm-bin", { linkTo: storeAg() });
+  const bin = npmLink("nvm-node");
 
-  const output = ok(world.ag(["status"], { env: { PATH: pathWith(launcherDir(), npmBin) } }));
+  const output = ok(world.ag(["status"], { env: { PATH: pathWith(launcherDir(), bin) } }));
 
   assert.match(output, /^Launcher: +~\/\.local\/bin\/ag runs sync\/bin\/ag\.mjs$/m);
   if (WINDOWS) {
     assert.match(output, /^ +~\/\.local\/bin\/ag\.cmd runs sync\/bin\/ag\.mjs$/m);
   }
   assert.match(output, /^ +~\/\.local\/bin is on PATH$/m);
-  assert.match(output, /^ +warning: .+ also runs this store's ag, beside the Launcher\./m);
+  assert.ok(output.includes(`                 ${npmLinkWarning(bin)}`), output);
 });
 
 test("ag status reports a missing Launcher and writes nothing", () => {
