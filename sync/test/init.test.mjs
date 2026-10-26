@@ -40,8 +40,9 @@ test("ag init with a URL takes Core from upstream and pushes to the user's own o
   );
   assert.equal(world.git(world.store, "config", "branch.main.remote"), "origin");
   assert.equal(world.git(world.store, "config", "core.hooksPath"), ".githooks");
-  assert.deepEqual(world.calls("npm").map((call) => call.args), [["link"]]);
-  assert.match(output, /Next: ag new <name>/);
+  assert.match(world.read(".local/bin/ag", world.home), /^# ag launcher$/m);
+  assert.deepEqual(world.calls("npm"), []);
+  assert.ok(output.includes(`Next: node ${join(world.store, "sync", "bin", "ag.mjs")} new <name>`), output);
 });
 
 test("ag init without a URL creates a private repository with gh", () => {

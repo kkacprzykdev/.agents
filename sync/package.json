@@ -5,9 +5,6 @@
   "type": "module",
   "license": "MIT",
   "description": "Manage the ~/.agents store: profiles, runtime symlinks, branch updates, and push protection",
-  "bin": {
-    "ag": "./bin/ag.mjs"
-  },
   "scripts": {
     "test": "node --test test/*.test.mjs"
   }
