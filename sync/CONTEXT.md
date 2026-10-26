@@ -73,7 +73,7 @@ _Avoid_: Leftover, orphan, stray file
 _Avoid_: Codex sync, Codex mapping, sync parity
 
 **Launcher**:
-The small file in a user folder on `PATH` that runs the Sync tool with whichever `node` comes first on `PATH`. There is one per computer: `~/.local/bin/ag` on macOS and Linux, and `ag.cmd` plus that `ag` shell script in `%USERPROFILE%\.local\bin` on Windows. It holds the absolute path of the main checkout and a marker line, `# ag launcher` or `@rem ag launcher`. `ag` rewrites a marked file to the current text and keeps its target, the Sync tool or the Codex parity wrapper. It replaces a link from that path into the store's `sync/bin/`, and leaves any other file there alone and names it, like a Blocker. It warns about every other `ag` on `PATH` that runs this store's `ag`, and about a foreign `ag` before the Launcher, and deletes neither (ADR 0032).
+The small file in a user folder on `PATH` that runs the Sync tool with whichever `node` comes first on `PATH`. There is one per computer: `~/.local/bin/ag` on macOS and Linux, and `ag.cmd` plus that `ag` shell script in `%USERPROFILE%\.local\bin` on Windows. It holds the absolute path of the main checkout and a marker line, `# ag launcher` or `@rem ag launcher`. `ag` rewrites a marked file to the current text and keeps its target, the Sync tool or the Codex parity wrapper. It replaces a link from that path into the store's `sync/bin/`, and leaves any other file there alone and names it, like a Blocker. It warns about every folder on `PATH` that holds an npm link of `ag` or another link into this store, even a dangling one, and about a foreign `ag` before the Launcher, and deletes neither (ADR 0032).
 _Avoid_: npm link, shim, wrapper, alias
 
 **Sync tool**:

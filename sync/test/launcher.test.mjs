@@ -179,8 +179,8 @@ function npmLink(prefix, { leftover = false } = {}) {
   return bin;
 }
 
-const npmLinkWarning = (bin) =>
-  `warning: ${bin} holds an old npm link of ag, or another link to this store's ag. Remove it: run npm rm -g ag with the Node version of ${bin}, then delete ${WINDOWS ? `any ag, ag.cmd, and ag.ps1 still in ${bin}` : `${join(bin, "ag")} if it is still there`}.`;
+const npmLinkWarning = (bin, names = ["ag"]) =>
+  `warning: ${bin} holds an old npm link of ag, or another link to this store's ag. Remove it: run npm rm -g ag with the Node version of ${bin}, then delete ${names.map((name) => join(bin, name)).join(", ")} if still there.`;
 
 test("ag sync warns about an npm link of ag wherever it is on PATH, and says how to remove it", () => {
   createDefault(world);
@@ -200,16 +200,28 @@ test("ag sync warns about the link that npm rm -g ag leaves behind once the pack
   assert.ok(output.includes(npmLinkWarning(bin)), output);
 });
 
+test("ag sync warns about a link made by hand into this store, even once its target is gone", () => {
+  createDefault(world);
+  const bin = join(world.base, "own-bin");
+  mkdirSync(bin);
+  symlinkSync(join(world.store, "sync", "bin", "moved-away.mjs"), join(bin, "ag"), "file");
+
+  const output = ok(world.ag(["sync"], { env: { PATH: pathWith(launcherDir(), bin) } }));
+
+  assert.ok(output.includes(npmLinkWarning(bin)), output);
+});
+
 test("on Windows, ag sync warns once about the files of an npm link that npm rm -g ag leaves behind", { skip: !WINDOWS }, () => {
   createDefault(world);
   const npm = join(world.base, "npm");
   mkdirSync(npm);
   writeFileSync(join(npm, "ag"), '#!/bin/sh\nexec node "$basedir/node_modules/ag/bin/ag.mjs" "$@"\n');
   writeFileSync(join(npm, "ag.cmd"), '@"%_prog%" "%dp0%\\node_modules\\ag\\bin\\ag.mjs" %*\r\n');
+  writeFileSync(join(npm, "ag.ps1"), '& "node$exe" "$basedir/node_modules/ag/bin/ag.mjs" $args\n');
 
   const output = ok(world.ag(["sync"], { env: { PATH: pathWith(npm, launcherDir()) } }));
 
-  assert.equal(output.split(npmLinkWarning(npm)).length, 2, output);
+  assert.equal(output.split(npmLinkWarning(npm, ["ag", "ag.cmd", "ag.ps1"])).length, 2, output);
   assert.doesNotMatch(output, /is another ag command/);
 });
 

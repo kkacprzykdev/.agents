@@ -1996,7 +1996,7 @@ function isCommand(path) {
 }
 
 // npm links ag as <prefix>/bin/ag -> ../lib/node_modules/ag/bin/ag.mjs, and on Windows writes shims that name that path.
-// npm rm -g ag leaves them behind once the package has no bin entry, so a dangling one counts too.
+// npm rm -g ag leaves them behind once the package has no bin entry, so a dangling link counts too.
 const NPM_LINK = /node_modules[\\/]ag[\\/]bin[\\/]ag\.mjs/;
 
 // An npm link of ag, or a link made by hand into this store.
@@ -2005,7 +2005,12 @@ function isStoreLink(path) {
     const stat = lstatSync(path, { throwIfNoEntry: false });
     if (!stat) return false;
     if (stat.isSymbolicLink()) {
-      return NPM_LINK.test(readlinkSync(path)) || insideRoot(STORE_ROOT, realpathOrSelf(path)) !== null;
+      const target = readlinkSync(path);
+      return (
+        NPM_LINK.test(target) ||
+        insideRoot(STORE_ROOT, realpathOrSelf(path)) !== null ||
+        insideRoot(STORE_ROOT, resolve(dirname(path), target)) !== null
+      );
     }
     return stat.isFile() && stat.size < 4096 && NPM_LINK.test(readFileSync(path, "utf8"));
   } catch {
@@ -2014,10 +2019,12 @@ function isStoreLink(path) {
 }
 
 // Every ag command on PATH outside the Launcher's files, with each folder that links this store's ag named once.
-// ag only reads them, and never deletes one.
+// PowerShell runs ag.ps1 though PATHEXT leaves it out. ag only reads them, and never deletes one.
 function otherAgCommands() {
   const extensions = WINDOWS ? (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean) : [];
-  const names = ["ag", ...extensions.map((extension) => `ag${extension.toLowerCase()}`)];
+  const names = [
+    ...new Set(["ag", ...extensions.map((extension) => `ag${extension.toLowerCase()}`), ...(WINDOWS ? ["ag.ps1"] : [])]),
+  ];
   const dirs = pathDirs();
   const launcherIndex = dirs.findIndex((dir) => samePath(dir, LAUNCHER_DIR));
   const launcherNames = LAUNCHER_FILES.map((file) => file.name);
@@ -2034,17 +2041,16 @@ function otherAgCommands() {
         besideLauncher: index === launcherIndex,
         beforeLauncher: launcherIndex === -1 || index < launcherIndex,
       }));
-    return links.length ? [{ dir, storeLink: true }, ...commands] : commands;
+    return links.length ? [{ dir, links }, ...commands] : commands;
   });
 }
 
 // A foreign ag after the Launcher never runs in its place, so it gets no warning.
 function otherAgWarnings() {
-  return otherAgCommands().flatMap(({ path, dir, storeLink, besideLauncher, beforeLauncher }) => {
-    if (storeLink) {
-      const leftovers = WINDOWS ? `any ag, ag.cmd, and ag.ps1 still in ${display(dir)}` : `${display(join(dir, "ag"))} if it is still there`;
+  return otherAgCommands().flatMap(({ path, dir, links, besideLauncher, beforeLauncher }) => {
+    if (links) {
       return [
-        `${display(dir)} holds an old npm link of ag, or another link to this store's ag. Remove it: run npm rm -g ag with the Node version of ${display(dir)}, then delete ${leftovers}.`,
+        `${display(dir)} holds an old npm link of ag, or another link to this store's ag. Remove it: run npm rm -g ag with the Node version of ${display(dir)}, then delete ${links.map(display).join(", ")} if still there.`,
       ];
     }
     // On Windows, PATHEXT can pick ag.exe or ag.bat over ag.cmd in the same folder.
