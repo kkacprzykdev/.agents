@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-// Runs ag, then codex-parity-sync.mjs after an ag command that syncs. To opt in on one machine, link this file
-// as `ag` in a folder that comes before the real ag on PATH. Stopgap until sync parity (kkacprzykdev/.agents#2).
+// Runs ag, then codex-parity-sync.mjs after an ag command that syncs. To opt in on one machine, change the
+// Launcher's target from sync/bin/ag.mjs to this file. ag keeps that target when it rewrites the Launcher.
+// Stopgap until sync parity (kkacprzykdev/.agents#2).
 
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
