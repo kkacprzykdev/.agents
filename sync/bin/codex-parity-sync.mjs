@@ -2,8 +2,8 @@
 
 // Stopgap until sync parity (kkacprzykdev/.agents#2): gives Codex the commands and rules that ag sync links only
 // into Claude and Cursor. It reads them from the links ag sync made in ~/.claude, generates Codex files into
-// sync/.generated/codex/, and links those into ~/.codex. Nothing in ag runs it: ag-codex-parity.mjs, linked as
-// `ag` ahead of the real one on PATH, runs it after every ag command that syncs. See ADR 0029.
+// sync/.generated/codex/, and links those into ~/.codex. Nothing in ag runs it: ag-codex-parity.mjs, as the
+// Launcher's target, runs it after every ag command that syncs. See ADR 0029.
 
 import {
   existsSync,

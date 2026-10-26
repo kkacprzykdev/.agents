@@ -18,7 +18,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -56,13 +56,16 @@ const HELP = `ag — manage the ~/.agents store
 Usage:
   ag help                         Show this help.
   ag init [<url>]                 Turn a fresh clone into your own store: upstream for Core, origin for your pushes.
+                                  Writes the Launcher ~/.local/bin/ag, which runs ag with the node on PATH.
   ag new <name> [--from <parent>] [--protect] [--clean]
                                   Create a profile branch from main, or from a parent profile.
                                   --clean creates a clean profile from main, which links no store artifacts.
   ag use <profile>                Check out the profile's branch, then sync.
   ag sync [--dry-run]             Recreate the symlinks in every coding agent for the Active profile's Lineage.
+                                  Every command that syncs also writes the Launcher, and says when its folder is
+                                  not on PATH.
   ag status                       Show whether Core is read-only, the Active profile, Lineage, Edit worktree,
-                                  protection, and symlinks.
+                                  protection, the Launcher, and symlinks.
   ag setup                        Name the Active profile's setup skill, or print the prompt to create it.
                                   A clean profile needs no setup.
   ag owner <path>                 Print the store path, the branch that owns it, and where to edit it.
@@ -975,6 +978,7 @@ function runSync() {
     "info",
     `Done — ${runtimeCount} runtime(s), ${removed.size} symlink(s) removed, ${created} symlink(s) ${dryRun ? "would be created" : "created"}`,
   );
+  ensureLauncher();
 }
 
 // Returns runtime paths that differ from what ag sync would create, and the old links its scan would remove.
@@ -1834,13 +1838,299 @@ function createRepoWithGh() {
   return url.endsWith(".git") ? url : `${url}.git`;
 }
 
-function linkCli() {
-  const result = runTool("npm", ["link"], { cwd: join(STORE_ROOT, "sync"), stdio: "inherit" });
-  if (result.status === 0) {
-    log("info", "Linked the ag command with npm link");
+const LAUNCHER_DIR = join(homedir(), ".local", "bin");
+const SYNC_TOOL = "ag.mjs";
+
+function storeScript(target) {
+  return join(STORE_ROOT, "sync", "bin", target);
+}
+
+// Git Bash reads a Windows path with forward slashes.
+function shellLauncher(target) {
+  const path = storeScript(target).split(sep).join("/").replace(/["$`\\]/g, "\\$&");
+  return `#!/bin/sh\n# ag launcher\nexec node "${path}" "$@"\n`;
+}
+
+function cmdLauncher(target) {
+  return `@rem ag launcher\r\n@node "${storeScript(target).replace(/%/g, "%%")}" %*\r\n`;
+}
+
+// The shell script serves macOS, Linux, and Git Bash on Windows. ag.cmd serves PowerShell and cmd.
+const LAUNCHER_FILES = [
+  { name: "ag", marker: "# ag launcher", text: shellLauncher },
+  ...(WINDOWS ? [{ name: "ag.cmd", marker: "@rem ag launcher", text: cmdLauncher }] : []),
+];
+
+// The Codex parity wrapper is a target only until sync parity (#2), which points such a Launcher back at the Sync tool.
+const LAUNCHER_TARGETS = ["ag-codex-parity.mjs", SYNC_TOOL];
+
+// What sits at one Launcher path: missing, a Launcher that is current or old, a link into this store's sync/bin/
+// from before Launchers, or a foreign file that ag leaves alone, like a Blocker.
+function inspectLauncher(file) {
+  const path = join(LAUNCHER_DIR, file.name);
+  const stat = lstatSync(path, { throwIfNoEntry: false });
+  if (!stat) {
+    return { path, state: "missing", target: SYNC_TOOL };
+  }
+  // Any other link is foreign, so a write never goes through it into a file ag does not own.
+  if (stat.isSymbolicLink()) {
+    const real = existsSync(path) ? realpathOrSelf(path) : "";
+    const target = basename(real);
+    const intoSyncBin = foldCase(dirname(real)) === foldCase(join(STORE_ROOT, "sync", "bin"));
+    return intoSyncBin && LAUNCHER_TARGETS.includes(target) ? { path, state: "link", target } : { path, state: "foreign" };
+  }
+  const text = stat.isFile() ? readFileSync(path, "utf8") : "";
+  if (!lines(text).includes(file.marker)) {
+    return { path, state: "foreign" };
+  }
+  const target = LAUNCHER_TARGETS.find((name) => text.includes(name)) ?? SYNC_TOOL;
+  const executable = WINDOWS || stat.mode & 0o111;
+  return { path, state: text === file.text(target) && executable ? "current" : "old", target };
+}
+
+const LAUNCHER_ACTIONS = {
+  missing: ["create", "created", (path) => `Launcher ${path}`],
+  old: ["update", "updated", (path) => `Launcher ${path}`],
+  link: ["replace", "replaced", (path) => `the link ${path} with a Launcher`],
+};
+
+// Quoted, because a home folder can hold a space, such as C:\Users\Jane Doe.
+function nodeCommand() {
+  return `node "${storeScript(SYNC_TOOL)}" <command>`;
+}
+
+// The Launcher runs the Sync tool with whichever node comes first on PATH. It is a small step beside Sync,
+// and no problem with it ever stops a command.
+function ensureLauncher() {
+  for (const file of LAUNCHER_FILES) {
+    try {
+      writeLauncherFile(file);
+    } catch (error) {
+      log(
+        "warn",
+        `ag could not write the Launcher ${display(join(LAUNCHER_DIR, file.name))} (${error.code ?? error.message}). Run ag as: ${nodeCommand()}`,
+      );
+    }
+  }
+  try {
+    if (WINDOWS) {
+      addToWindowsUserPath();
+    } else if (!launcherDirOnPath()) {
+      log("warn", `${display(LAUNCHER_DIR)} is not on PATH, so the ag command is not found. ${pathHint()}`);
+    }
+    for (const warning of otherAgWarnings()) {
+      log("warn", warning);
+    }
+  } catch (error) {
+    log("warn", `ag could not check PATH for the Launcher (${error.message}).`);
+  }
+}
+
+function writeLauncherFile(file) {
+  const { path, state, target } = inspectLauncher(file);
+  if (state === "foreign") {
+    log("warn", `${display(path)} is not an ag Launcher, so ag left it. Move it away, then run ag sync again. Until then, run ag as: ${nodeCommand()}`);
     return;
   }
-  log("warn", `npm link failed. Run ag as: node ${join(STORE_ROOT, "sync", "bin", "ag.mjs")} <command>`);
+  if (state === "current") {
+    return;
+  }
+  const [verb, done, what] = LAUNCHER_ACTIONS[state];
+  log(dryRun ? `would ${verb}` : done, `${what(display(path))}, which runs sync/bin/${target}`);
+  if (dryRun) {
+    return;
+  }
+  mkdirSync(LAUNCHER_DIR, { recursive: true });
+  // A link is removed first, so the write never goes through it into the store.
+  if (state === "link") {
+    unlinkSync(path);
+  }
+  writeFileSync(path, file.text(target));
+  chmodSync(path, 0o755);
+}
+
+const LAUNCHER_STATES = {
+  current: (path, target) => `${path} runs sync/bin/${target}`,
+  old: (path, target) => `${path} runs sync/bin/${target}, from an older ag (run ag sync)`,
+  link: (path, target) => `${path} is a link to sync/bin/${target} (run ag sync)`,
+  missing: (path) => `${path} is missing (run ag sync)`,
+  foreign: (path) => `${path} is not an ag Launcher. Move it away, then run ag sync.`,
+};
+
+// For ag status, which only reports.
+function launcherStatusLines() {
+  const files = LAUNCHER_FILES.map((file) => {
+    const { path, state, target } = inspectLauncher(file);
+    return LAUNCHER_STATES[state](display(path), target);
+  });
+  return [...files, ...launcherPathLines(), ...otherAgWarnings().map((warning) => `warning: ${warning}`)];
+}
+
+// This terminal's PATH decides whether ag is found. On Windows, a user PATH that already has the folder only
+// needs a new terminal.
+function launcherPathLines() {
+  const folder = display(LAUNCHER_DIR);
+  if (launcherDirOnPath()) {
+    return [`${folder} is on PATH`];
+  }
+  if (!WINDOWS) {
+    return [`${folder} is not on PATH. ${pathHint()}`];
+  }
+  try {
+    return windowsUserPath({ reportOnly: true }) === "on-path"
+      ? [`${folder} is on your user PATH. Open a new terminal, so it finds the ag command.`]
+      : [`${folder} is not on PATH (run ag sync)`];
+  } catch (error) {
+    return [`ag could not read your user PATH (${error.message})`];
+  }
+}
+
+// A PATH entry can be a file or an unreadable folder, which is no reason to fail.
+function isCommand(path) {
+  try {
+    const stat = statSync(path, { throwIfNoEntry: false });
+    return Boolean(stat?.isFile() && (WINDOWS || stat.mode & 0o111));
+  } catch {
+    return false;
+  }
+}
+
+// npm links ag as <prefix>/bin/ag -> ../lib/node_modules/ag/bin/ag.mjs, and on Windows writes shims that name that path.
+// npm rm -g ag leaves them behind once the package has no bin entry, so a dangling link counts too.
+const NPM_LINK = /node_modules[\\/]ag[\\/]bin[\\/]ag\.mjs/;
+
+// An npm link of ag, or a link made by hand into this store.
+function isStoreLink(path) {
+  try {
+    const stat = lstatSync(path, { throwIfNoEntry: false });
+    if (!stat) return false;
+    if (stat.isSymbolicLink()) {
+      const target = readlinkSync(path);
+      return (
+        NPM_LINK.test(target) ||
+        insideRoot(STORE_ROOT, realpathOrSelf(path)) !== null ||
+        insideRoot(STORE_ROOT, resolve(dirname(path), target)) !== null
+      );
+    }
+    return stat.isFile() && stat.size < 4096 && NPM_LINK.test(readFileSync(path, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
+// Every ag command on PATH outside the Launcher's files, with each folder that links this store's ag named once.
+// PowerShell runs ag.ps1 though PATHEXT leaves it out. ag only reads them, and never deletes one.
+function otherAgCommands() {
+  const extensions = WINDOWS ? (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean) : [];
+  const names = [
+    ...new Set(["ag", ...extensions.map((extension) => `ag${extension.toLowerCase()}`), ...(WINDOWS ? ["ag.ps1"] : [])]),
+  ];
+  const dirs = pathDirs();
+  const launcherIndex = dirs.findIndex((dir) => samePath(dir, LAUNCHER_DIR));
+  const launcherNames = LAUNCHER_FILES.map((file) => file.name);
+  return dirs.flatMap((dir, index) => {
+    const paths = names
+      .filter((name) => index !== launcherIndex || !launcherNames.includes(name))
+      .map((name) => join(dir, name));
+    const links = paths.filter(isStoreLink);
+    const commands = paths
+      .filter((path) => !links.includes(path) && isCommand(path))
+      .map((path) => ({
+        path,
+        dir,
+        besideLauncher: index === launcherIndex,
+        beforeLauncher: launcherIndex === -1 || index < launcherIndex,
+      }));
+    return links.length ? [{ dir, links }, ...commands] : commands;
+  });
+}
+
+// A foreign ag after the Launcher never runs in its place, so it gets no warning.
+function otherAgWarnings() {
+  return otherAgCommands().flatMap(({ path, dir, links, besideLauncher, beforeLauncher }) => {
+    if (links) {
+      return [
+        `${display(dir)} holds an old npm link of ag, or another link to this store's ag. Remove it: run npm rm -g ag with the Node version of ${display(dir)}, then delete ${links.map(display).join(", ")} if still there.`,
+      ];
+    }
+    // On Windows, PATHEXT can pick ag.exe or ag.bat over ag.cmd in the same folder.
+    if (besideLauncher) {
+      return [`${display(path)} is another ag command in the Launcher's folder, so it may run in place of ag. Move it away.`];
+    }
+    if (beforeLauncher) {
+      return [
+        `${display(path)} is another ag command, and it comes before the Launcher on PATH, so it runs in place of ag. Check with whence -p ag in zsh or type -a ag in bash, and put ${display(LAUNCHER_DIR)} before ${display(dir)} on PATH.`,
+      ];
+    }
+    return [];
+  });
+}
+
+// Reads and writes only the user PATH, never the merged process PATH, and never with setx, which cuts it short.
+// PowerShell changes the value itself, so it never passes through a console encoding. It prints one word.
+const WINDOWS_USER_PATH_SCRIPT = `$dir = $env:AG_LAUNCHER_DIR
+$parts = @(([Environment]::GetEnvironmentVariable('Path', 'User') -split ';') | Where-Object { $_ })
+if ($parts | Where-Object { $_.TrimEnd('\\') -eq $dir }) { 'on-path'; exit }
+if ($env:AG_REPORT_ONLY) { 'missing'; exit }
+[Environment]::SetEnvironmentVariable('Path', (($parts + $dir) -join ';'), 'User')
+'added'`;
+
+// Returns on-path, missing, or added. With reportOnly, it changes nothing.
+function windowsUserPath({ reportOnly }) {
+  const encoded = Buffer.from(WINDOWS_USER_PATH_SCRIPT, "utf16le").toString("base64");
+  const result = runTool("powershell", ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded], {
+    encoding: "utf8",
+    env: { ...process.env, AG_LAUNCHER_DIR: LAUNCHER_DIR, AG_REPORT_ONLY: reportOnly ? "1" : "" },
+  });
+  const answer = (result.stdout ?? "").trim();
+  if (result.error || result.status !== 0 || !["on-path", "missing", "added"].includes(answer)) {
+    throw new Error(result.error?.message ?? ((result.stderr ?? "").trim() || `exit ${result.status}`));
+  }
+  return answer;
+}
+
+function addToWindowsUserPath() {
+  const folder = display(LAUNCHER_DIR);
+  try {
+    const answer = windowsUserPath({ reportOnly: dryRun });
+    if (answer === "added") {
+      log("added", `${folder} to your user PATH. Open a new terminal, so it finds the ag command.`);
+    } else if (answer === "missing") {
+      log("would add", `${folder} to your user PATH`);
+    }
+  } catch (error) {
+    log("warn", `ag could not add ${folder} to your user PATH (${error.message}). Add it by hand, or run ag as: ${nodeCommand()}`);
+  }
+}
+
+function samePath(a, b) {
+  return foldCase(realpathOrSelf(expandPath(a))) === foldCase(realpathOrSelf(b));
+}
+
+// The folders on PATH, each once, in order.
+function pathDirs() {
+  const dirs = [];
+  for (const entry of (process.env.PATH ?? "").split(delimiter)) {
+    if (entry && !dirs.some((dir) => samePath(entry, dir))) {
+      dirs.push(realpathOrSelf(expandPath(entry)));
+    }
+  }
+  return dirs;
+}
+
+function launcherDirOnPath() {
+  return pathDirs().some((dir) => samePath(dir, LAUNCHER_DIR));
+}
+
+// ag never edits a startup file. It names the line and the file for the user's shell.
+function pathHint() {
+  const shell = basename(process.env.SHELL ?? "");
+  const exportLine = 'export PATH="$HOME/.local/bin:$PATH"';
+  if (shell === "fish") {
+    return "Run this once in fish, then open a new terminal:\n  fish_add_path ~/.local/bin";
+  }
+  const file = { zsh: "~/.zshrc", bash: "~/.bash_profile" }[shell] ?? "your shell's startup file";
+  return `Add this line to ${file}, then open a new terminal:\n  ${exportLine}`;
 }
 
 // Turns a fresh clone of the Upstream store into the user's own store. Safe to rerun after a failure.
@@ -1885,10 +2175,12 @@ function runInit(args) {
   if (ahead && !gitVisible(["push", "-u", "origin", CORE_BRANCH], STORE_ROOT)) {
     throw pushFailed;
   }
-  linkCli();
+  ensureLauncher();
 
   console.log(`Your store pushes to ${remoteUrl("origin")} and takes Core updates from ${remoteUrl(UPSTREAM)}.`);
-  console.log("Next: ag new <name> creates your first profile.");
+  // In the terminal that ran ag init, ag is found only when the Launcher's folder was already on PATH.
+  const ag = launcherDirOnPath() ? "ag" : `node "${storeScript(SYNC_TOOL)}"`;
+  console.log(`Next: ${ag} new <name> creates your first profile.`);
 }
 
 // Follows symlinks and restores the on-disk letter case, which macOS ignores when it opens a file.
@@ -2279,6 +2571,11 @@ function runStatus() {
   const protectedList = protectedProfiles();
   console.log(
     `Protected:       ${protectedList.length ? protectedList.join(", ") : "none"}${protectedList.length && hooksPath !== HOOKS_PATH ? " (warning: core.hooksPath is not .githooks)" : ""}`,
+  );
+
+  const indent = "                 ";
+  launcherStatusLines().forEach((line, index) =>
+    console.log(`${index ? indent : "Launcher:        "}${line.replaceAll("\n", `\n${indent}`)}`),
   );
 
   if (profile) {

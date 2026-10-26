@@ -110,9 +110,11 @@ export function createWorld({ agSource } = {}) {
       GIT_TERMINAL_PROMPT: "0",
       PATH: `${bin}${delimiter}${process.env.PATH}`,
     });
-  // A real npm link would change the machine's global packages, and a real gh could create repositories.
+  // A real npm could change the machine's global packages, and a real gh could create repositories.
   writeStub(bin, "npm", recorder("npm"));
   writeStub(bin, "gh", "process.exit(1);\n");
+  // On Windows, Sync adds the Launcher's folder to the user PATH through PowerShell. A real call would change the runner's.
+  writeStub(bin, "powershell", `${recorder("powershell")}console.log("on-path");\n`);
 
   const baseEnv = envFor(join(base, "home"));
   const run = (command, args, cwd, env = baseEnv) => spawnSync(command, args, { cwd, env, encoding: "utf8" });
@@ -142,7 +144,8 @@ export function createWorld({ agSource } = {}) {
       store,
       edit: `${store}-edit`,
       env,
-      ag: (args, { cwd = store } = {}) => run(process.execPath, [join(store, "sync/bin/ag.mjs"), ...args], cwd, env),
+      ag: (args, { cwd = store, env: extra = {} } = {}) =>
+        run(process.execPath, [join(store, "sync/bin/ag.mjs"), ...args], cwd, { ...env, ...extra }),
       write: (rel, content, root = store) => writeFile(root, rel, content),
       read: (rel, root = store) => readFileSync(join(root, rel), "utf8"),
       exists: (rel, root = store) => existsSync(join(root, rel)),

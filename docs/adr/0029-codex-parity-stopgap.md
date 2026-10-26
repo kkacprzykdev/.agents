@@ -1,6 +1,6 @@
 # Codex gets commands and rules through an opt-in stopgap
 
-Until sync parity ([#2](https://github.com/kkacprzykdev/.agents/issues/2)), `ag sync` links no commands or rules into Codex. `sync/bin/codex-parity-sync.mjs` fills that gap on a machine that opts in. Nothing in `ag` runs it. `sync/bin/ag-codex-parity.mjs` runs `ag`, then the script after `ag sync`, `ag update`, `ag use`, `ag new`, and `ag skills add`. A machine opts in by linking that file as `ag` in a folder that comes before the real `ag` on `PATH`. A store that takes Core from this one gets both files and runs neither until it opts in.
+Until sync parity ([#2](https://github.com/kkacprzykdev/.agents/issues/2)), `ag sync` links no commands or rules into Codex. `sync/bin/codex-parity-sync.mjs` fills that gap on a machine that opts in. Nothing in `ag` runs it. `sync/bin/ag-codex-parity.mjs` runs `ag`, then the script after `ag sync`, `ag update`, `ag use`, `ag new`, and `ag skills add`. A machine opts in by changing its Launcher's target to `sync/bin/ag-codex-parity.mjs`. A store that takes Core from this one gets both files and runs neither until it opts in.
 
 The script reads the commands and rules from the links `ag sync` made in `~/.claude/commands/` and `~/.claude/rules/`, so it follows the Lineage without working it out again. It generates files into `sync/.generated/codex/`, which git ignores, and links them into `~/.codex/` the way `ag sync` links artifacts:
 

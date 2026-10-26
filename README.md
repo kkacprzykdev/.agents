@@ -88,20 +88,29 @@ Rename your global `AGENTS.md` and `CLAUDE.md` files too, in the folder of every
 
 ```bash
 git clone https://github.com/kkacprzykdev/.agents ~/.agents && node ~/.agents/sync/bin/ag.mjs init
-ag new <name>
+node ~/.agents/sync/bin/ag.mjs new <name>
 ```
 
 **Windows** (PowerShell):
 
 ```powershell
 git clone https://github.com/kkacprzykdev/.agents "$HOME\.agents"; node "$HOME\.agents\sync\bin\ag.mjs" init
-ag new <name>
+node "$HOME\.agents\sync\bin\ag.mjs" new <name>
 ```
 
 <details>
 <summary>What these commands do</summary>
 
-`ag init` renames the clone's `origin` remote to `upstream` and adds your own repository as `origin`. Then it pushes `main` there, turns on the git hooks, and links the `ag` command with `npm link`. If `npm link` fails, `ag init` prints the full `node` command to use instead. When a step fails, fix the cause and run `ag init` again.
+`ag init` renames the clone's `origin` remote to `upstream` and adds your own repository as `origin`. Then it pushes `main` there, turns on the git hooks, and writes the `ag` Launcher: `~/.local/bin/ag` on macOS and Linux, and `ag.cmd` plus an `ag` shell script for Git Bash in `%USERPROFILE%\.local\bin` on Windows. The Launcher runs `~/.agents/sync/bin/ag.mjs` with whichever `node` comes first on `PATH`, so `ag` keeps working after you switch Node versions. When a step fails, fix the cause and run `ag init` again.
+
+The first terminal runs everything through `node`, because the Launcher's folder may not be on `PATH` yet:
+
+- **macOS and Linux:** when `~/.local/bin` is not on `PATH`, `ag` prints the line to add and the file to add it to, such as `export PATH="$HOME/.local/bin:$PATH"` in `~/.zshrc`. `ag init` and every command that syncs print it until the folder is on `PATH`, and `ag status` shows it too. `ag` never edits the file itself.
+- **Windows:** `ag` adds the folder to your user `PATH` itself, and says so.
+
+Plain `ag` works in a new terminal after that. A GUI app or an agent shell that reads no shell startup file needs both the Launcher's folder and `node` on its `PATH`.
+
+`ag` warns about every folder on `PATH` that holds an old `npm link` of `ag`, or another link to this store's `ag`. To remove it, run `npm rm -g ag` with that folder's `node` version, then delete the files the warning names. The package has no `bin` entry, so `npm rm -g ag` leaves the `ag` link, and on Windows its shims. It also warns when another tool named `ag`, such as The Silver Searcher, comes before the Launcher on `PATH`. It never deletes either.
 
 `ag new <name>` creates your first profile and links its artifacts into your agents. `ag update` keeps bringing Core changes from `upstream` down to it. Add `--protect` to `ag new` to keep the profile on this computer only.
 
@@ -137,8 +146,12 @@ Do this on each extra computer. Rename an existing `~/.agents` folder and the gl
 ```bash
 git clone <your-store-url> ~/.agents
 git -C ~/.agents remote add upstream https://github.com/kkacprzykdev/.agents
-cd ~/.agents/sync && npm link
-ag use <profile>
+node ~/.agents/sync/bin/ag.mjs use <profile>
+```
+
+Then, in a new terminal:
+
+```bash
 ag setup
 ```
 
@@ -147,8 +160,12 @@ ag setup
 ```powershell
 git clone <your-store-url> "$HOME\.agents"
 git -C "$HOME\.agents" remote add upstream https://github.com/kkacprzykdev/.agents
-cd "$HOME\.agents\sync"; npm link
-ag use <profile>
+node "$HOME\.agents\sync\bin\ag.mjs" use <profile>
+```
+
+Then, in a new terminal:
+
+```powershell
 ag setup
 ```
 
@@ -158,6 +175,8 @@ Replace these placeholders:
 - `<profile>` is the profile to use on this computer.
 
 Git does not clone remotes, so the second line adds this repository as `upstream` again. `ag update` then merges Core updates on this computer too.
+
+`ag use` switches to the profile, syncs, and writes the Launcher, as `ag init` does on the first computer. On macOS and Linux, add the `PATH` line it prints, if any, before you open the new terminal.
 
 `ag setup` names the profile's setup skill. Ask your agent to run that skill. It fills in the profile's local settings. When the profile has no setup skill yet, `ag setup` prints a prompt instead. Give it to an agent to write the skill.
 
@@ -226,12 +245,12 @@ A profile's own `README.md` lists any extra tools it needs.
 
 ```bash
 ag help                               # list commands
-ag init [<url>]                       # turn a fresh clone into your own store: upstream for Core, origin for your pushes
+ag init [<url>]                       # turn a fresh clone into your own store: upstream for Core, origin for your pushes, and the Launcher
 ag new <name> [--from <parent>] [--protect] [--clean]
                                       # create a profile from main or a parent profile; --clean creates a clean profile from main
 ag use <profile>                      # switch ~/.agents to the profile's branch, then sync with that branch's ag
 ag sync [--dry-run]                   # recreate the symlinks in every coding agent for the Active profile's Lineage, and remove old ones
-ag status                             # whether Core is read-only, Active profile, Lineage, Migration levels, Edit worktree, protection, stale symlinks
+ag status                             # whether Core is read-only, Active profile, Lineage, Migration levels, Edit worktree, protection, Launcher, stale symlinks
 ag setup                              # name the Active profile's setup skill for your agent to run, or print the prompt to create it; a clean profile needs no setup
 ag owner <path>                       # the resolved store path, the branch that owns it, and where to edit it
 ag edit <branch>                      # switch the Edit worktree to a branch
@@ -255,7 +274,7 @@ error: ~/.agents-edit has uncommitted changes (listed above). Commit or discard 
 
 When both checkouts have changes, both blocks are printed, `~/.agents` first. A checkout in the middle of a merge, rebase, cherry-pick, or revert is refused with `error: <checkout> has a merge in progress. Finish or abort it first.` Those commands and `ag push` also refuse when the clone has no `origin` remote: `error: no origin remote. Add it with: git remote add origin <url>`.
 
-**`ag init [<url>]`** sets up a fresh clone, one that has only `main` checked out. It refuses in a store that already has profiles. It renames `origin` to `upstream` and adds `<url>` as `origin`. Without a URL, it creates a private repository with `gh repo create .agents --private`, and refuses with a hint to pass a URL when `gh` is missing or not signed in. Then it pushes `main` to `origin`, sets `core.hooksPath=.githooks`, and runs `npm link` in `sync/`. A failed `npm link` only prints how to run `ag` with `node`. When the push fails, run `ag init <url>` again with the right URL: it keeps `upstream` and replaces `origin`.
+**`ag init [<url>]`** sets up a fresh clone, one that has only `main` checked out. It refuses in a store that already has profiles. It renames `origin` to `upstream` and adds `<url>` as `origin`. Without a URL, it creates a private repository with `gh repo create .agents --private`, and refuses with a hint to pass a URL when `gh` is missing or not signed in. Then it pushes `main` to `origin`, sets `core.hooksPath=.githooks`, and writes the Launcher, as every command that syncs does (see below). When the push fails, run `ag init <url>` again with the right URL: it keeps `upstream` and replaces `origin`.
 
 **`ag new <name>`** refuses when a checkout is not ready (see above), the name is taken, or the parent branch is missing. It also refuses when a real `AGENTS.md` or `CLAUDE.md` in an agent home has the name of an instruction file that the new profile's Lineage links. It lists those files, says to rename them, and creates nothing. Otherwise it creates the branch from `main`, or from the parent given with `--from`. It writes the profile skeleton: `profile.yaml` and the five `artifacts/<kind>-profile-me/` folders. `profile.yaml` gets the Core migration level of the checkout that holds the running `ag`, read before the switch, as `migration-level` when it is above 0. In a Root profile that is not clean, the instructions folder gets an empty `AGENTS.md` and a `CLAUDE.md` that holds `@~/.claude/AGENTS.md`. It writes `profiles/.env.active`, commits, runs `ag protect` when you pass `--protect`, and pushes with `ag push`. Then it creates the Edit worktree as `ag use` does, without its sync, and runs `ag update`. That update merges `main` into the Lineage, runs any pending Profile migrations, and syncs, so it also fixes a Migration level that differs from the branch's Core. When it stops, `ag sync`'s level check applies: a profile below the level is refused, one above it gets a warning.
 
@@ -280,7 +299,9 @@ Ancestors are updated in `~/.agents-edit`. The Active profile's branch is update
 
 A Profile migration that needs a decision stops the update the same way. Its changes so far stay uncommitted, and the level is not raised. `ag update` prints the checkout, the branch, the steps to finish, and the commit message. Do the steps, or give the message to your coding agent, commit with that message, and run `ag update` again. The migration then sees its work is done, and `ag update` commits the raised level. A migration that crashes puts the profile folder back to its last commit: tracked changes are reverted and new files are removed, but ignored local files stay. Levels committed before it stay too. `ag update` prints the error, and runs that migration again on the next run.
 
-**`ag status`** also prints one line with each Lineage profile's Migration level against the Core migration level, for example `Migration level: default 3/3, work 2/3 (run ag update)`. Its stale-link report uses the same scan as `ag sync`. On `main`, where there is no Active profile, it prints neither.
+**The Launcher.** `ag init` and every command that syncs (`sync`, `use`, `new`, `update`, `skills add`) write it. A missing Launcher is written, one that an older `ag` wrote is rewritten to the current text, and a link from its path into the store's `sync/bin/` is replaced by a Launcher that keeps the link's target. Each file holds a marker line, `# ag launcher` or `@rem ag launcher`, and the absolute path of `~/.agents`. Any other file at the Launcher's path stays, and `ag` names it. When the Launcher cannot be written, `ag` warns with the `node` command to use instead. A Launcher problem, a `PATH` hint, or a warning about another `ag` never stops a command, and Sync still links. `--dry-run` reports what it would do and writes nothing. On Windows, `ag` reads and writes only the user `PATH`, through PowerShell, never with `setx`.
+
+**`ag status`** prints the Launcher: each file with its target, whether its folder is on `PATH`, and the warnings about other `ag` commands. It only reports, and writes nothing. It also prints one line with each Lineage profile's Migration level against the Core migration level, for example `Migration level: default 3/3, work 2/3 (run ag update)`. Its stale-link report uses the same scan as `ag sync`. On `main`, where there is no Active profile, it prints neither the Migration levels nor the stale links.
 
 **`ag issue bug|idea`** files a Core issue on the store that owns Core: the `upstream` remote's repository when there is one, otherwise `origin`. It refuses a remote that is not on GitHub. The body file must use the headings of the matching issue form, and only those. A bug has `### What happened`, `### What you expected`, and an optional `### OS`. An idea has `### Problem` and `### Proposed change`. Without `--yes`, it prints the repository, title, and body, and files nothing. That repository may be public, so an agent shows the preview to you and adds `--yes` only after you approve it. With `--yes`, it refuses when `gh` is missing or not signed in. It adds the `bug` or `enhancement` label only when you can push to that repository, because GitHub keeps labels on a new issue only from someone with push access. An issue from anyone else gets `needs-triage` from the repository's workflow, and triage sets its category.
 
@@ -416,7 +437,7 @@ Add a kind to a coding agent only after its format and behavior have been verifi
 cd ~/.agents/sync && npm test
 ```
 
-The suite builds throwaway stores with a local `origin` and a fake home directory. Stubs stand in for `npm`, `npx`, and `gh`, so a test never links packages or creates repositories. A layout test also reads this repository's own `artifacts/` folder. It fails on an entry that is not a `<kind>-store-me` or `<kind>-core-me` folder of a known kind, and on a name that a Store artifact and a Core-owner artifact of one kind share. The `pre-commit` hook runs the suite for every commit that changes `sync/`, `.githooks/`, or `artifacts/`, and a failing test blocks the commit. The `ag tests` GitHub Actions workflow runs it for pushes to `main` and pull requests that change those folders, on Linux, macOS, and Windows, then runs a git hook from that checkout. The suite is split by test file into jobs that run at the same time: ten on Windows, which starts processes slowly, and two on macOS. Every pull request starts the workflow, and its `ag tests result` job passes when the tests pass or do not need to run. A pull request into `main` can merge only when that check passes and the branch is up to date with `main`, so two pull requests cannot merge Profile migrations with the same number unnoticed. A test checks that migration numbers start at `0001` and have no gaps or repeats. The workflow runs only in this repository. In your own store's repository its jobs are skipped, so it uses none of your Actions minutes.
+The suite builds throwaway stores with a local `origin` and a fake home directory. Stubs stand in for `npm`, `npx`, `gh`, and `powershell`, so a test never installs packages, creates repositories, or changes the user `PATH`. A layout test also reads this repository's own `artifacts/` folder. It fails on an entry that is not a `<kind>-store-me` or `<kind>-core-me` folder of a known kind, and on a name that a Store artifact and a Core-owner artifact of one kind share. The `pre-commit` hook runs the suite for every commit that changes `sync/`, `.githooks/`, or `artifacts/`, and a failing test blocks the commit. The `ag tests` GitHub Actions workflow runs it for pushes to `main` and pull requests that change those folders, on Linux, macOS, and Windows, then runs a git hook from that checkout. The suite is split by test file into jobs that run at the same time: ten on Windows, which starts processes slowly, and two on macOS. Every pull request starts the workflow, and its `ag tests result` job passes when the tests pass or do not need to run. A pull request into `main` can merge only when that check passes and the branch is up to date with `main`, so two pull requests cannot merge Profile migrations with the same number unnoticed. A test checks that migration numbers start at `0001` and have no gaps or repeats. The workflow runs only in this repository. In your own store's repository its jobs are skipped, so it uses none of your Actions minutes.
 
 Domain glossary: [`CONTEXT-MAP.md`](./CONTEXT-MAP.md). Decisions: [`docs/adr/`](./docs/adr/). Docs describe the current state only (`artifacts/rules-store-me/store-docs.mdc`).
 
