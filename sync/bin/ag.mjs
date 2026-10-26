@@ -1872,19 +1872,20 @@ function inspectLauncher(file) {
   if (!stat) {
     return { path, state: "missing", target: SYNC_TOOL };
   }
-  if (stat.isSymbolicLink() && existsSync(path)) {
-    const real = realpathOrSelf(path);
+  // Any other link is foreign, so a write never goes through it into a file ag does not own.
+  if (stat.isSymbolicLink()) {
+    const real = existsSync(path) ? realpathOrSelf(path) : "";
     const target = basename(real);
-    if (foldCase(dirname(real)) === foldCase(join(STORE_ROOT, "sync", "bin")) && LAUNCHER_TARGETS.includes(target)) {
-      return { path, state: "link", target };
-    }
+    const intoSyncBin = foldCase(dirname(real)) === foldCase(join(STORE_ROOT, "sync", "bin"));
+    return intoSyncBin && LAUNCHER_TARGETS.includes(target) ? { path, state: "link", target } : { path, state: "foreign" };
   }
-  const text = existsSync(path) && statSync(path).isFile() ? readFileSync(path, "utf8") : "";
+  const text = stat.isFile() ? readFileSync(path, "utf8") : "";
   if (!lines(text).includes(file.marker)) {
     return { path, state: "foreign" };
   }
   const target = LAUNCHER_TARGETS.find((name) => text.includes(name)) ?? SYNC_TOOL;
-  return { path, state: text === file.text(target) ? "current" : "old", target };
+  const executable = WINDOWS || stat.mode & 0o111;
+  return { path, state: text === file.text(target) && executable ? "current" : "old", target };
 }
 
 const LAUNCHER_ACTIONS = {
@@ -1893,8 +1894,9 @@ const LAUNCHER_ACTIONS = {
   link: ["replace", "replaced", (path) => `the link ${path} with a Launcher`],
 };
 
+// Quoted, because a home folder can hold a space, such as C:\Users\Jane Doe.
 function nodeCommand() {
-  return `node ${storeScript(SYNC_TOOL)} <command>`;
+  return `node "${storeScript(SYNC_TOOL)}" <command>`;
 }
 
 // The Launcher runs the Sync tool with whichever node comes first on PATH. It is a small step beside Sync,
@@ -1961,15 +1963,26 @@ function launcherStatusLines() {
     const { path, state, target } = inspectLauncher(file);
     return LAUNCHER_STATES[state](display(path), target);
   });
+  return [...files, ...launcherPathLines(), ...otherAgWarnings().map((warning) => `warning: ${warning}`)];
+}
+
+// This terminal's PATH decides whether ag is found. On Windows, a user PATH that already has the folder only
+// needs a new terminal.
+function launcherPathLines() {
   const folder = display(LAUNCHER_DIR);
-  let pathLine;
-  try {
-    const onPath = WINDOWS ? windowsUserPath({ reportOnly: true }) === "on-path" : launcherDirOnPath();
-    pathLine = onPath ? `${folder} is on PATH` : `${folder} is not on PATH (ag sync says how to add it)`;
-  } catch (error) {
-    pathLine = `ag could not read your user PATH (${error.message})`;
+  if (launcherDirOnPath()) {
+    return [`${folder} is on PATH`];
   }
-  return [...files, pathLine, ...otherAgWarnings().map((warning) => `warning: ${warning}`)];
+  if (!WINDOWS) {
+    return [`${folder} is not on PATH. ${pathHint()}`];
+  }
+  try {
+    return windowsUserPath({ reportOnly: true }) === "on-path"
+      ? [`${folder} is on your user PATH. Open a new terminal, so it finds the ag command.`]
+      : [`${folder} is not on PATH (run ag sync)`];
+  } catch (error) {
+    return [`ag could not read your user PATH (${error.message})`];
+  }
 }
 
 // A PATH entry can be a file or an unreadable folder, which is no reason to fail.
@@ -1996,28 +2009,33 @@ function otherAgCommands() {
   const names = ["ag", ...extensions.map((extension) => `ag${extension.toLowerCase()}`)];
   const dirs = pathDirs();
   const launcherIndex = dirs.findIndex((dir) => samePath(dir, LAUNCHER_DIR));
+  const launcherNames = LAUNCHER_FILES.map((file) => file.name);
   return dirs.flatMap((dir, index) =>
-    index === launcherIndex
-      ? []
-      : names
-          .map((name) => join(dir, name))
-          .filter(isCommand)
-          .map((path) => ({
-            path,
-            dir,
-            runsThisStore: runsThisStore(path, dir),
-            beforeLauncher: launcherIndex === -1 || index < launcherIndex,
-          })),
+    names
+      .filter((name) => index !== launcherIndex || !launcherNames.includes(name))
+      .map((name) => join(dir, name))
+      .filter(isCommand)
+      .map((path) => ({
+        path,
+        dir,
+        runsThisStore: runsThisStore(path, dir),
+        besideLauncher: index === launcherIndex,
+        beforeLauncher: launcherIndex === -1 || index < launcherIndex,
+      })),
   );
 }
 
 // A foreign ag after the Launcher never runs in its place, so it gets no warning.
 function otherAgWarnings() {
-  return otherAgCommands().flatMap(({ path, dir, runsThisStore, beforeLauncher }) => {
+  return otherAgCommands().flatMap(({ path, dir, runsThisStore, besideLauncher, beforeLauncher }) => {
     if (runsThisStore) {
       return [
         `${display(path)} also runs this store's ag, beside the Launcher. It may be an old npm link. Remove it with npm rm -g ag, run with the Node version of ${display(dir)}.`,
       ];
+    }
+    // On Windows, PATHEXT can pick ag.exe or ag.bat over ag.cmd in the same folder.
+    if (besideLauncher) {
+      return [`${display(path)} is another ag command in the Launcher's folder, so it may run in place of ag. Move it away.`];
     }
     if (beforeLauncher) {
       return [
@@ -2141,7 +2159,7 @@ function runInit(args) {
 
   console.log(`Your store pushes to ${remoteUrl("origin")} and takes Core updates from ${remoteUrl(UPSTREAM)}.`);
   // In the terminal that ran ag init, ag is found only when the Launcher's folder was already on PATH.
-  const ag = launcherDirOnPath() ? "ag" : `node ${storeScript(SYNC_TOOL)}`;
+  const ag = launcherDirOnPath() ? "ag" : `node "${storeScript(SYNC_TOOL)}"`;
   console.log(`Next: ${ag} new <name> creates your first profile.`);
 }
 
@@ -2535,7 +2553,10 @@ function runStatus() {
     `Protected:       ${protectedList.length ? protectedList.join(", ") : "none"}${protectedList.length && hooksPath !== HOOKS_PATH ? " (warning: core.hooksPath is not .githooks)" : ""}`,
   );
 
-  launcherStatusLines().forEach((line, index) => console.log(`${index ? "                 " : "Launcher:        "}${line}`));
+  const indent = "                 ";
+  launcherStatusLines().forEach((line, index) =>
+    console.log(`${index ? indent : "Launcher:        "}${line.replaceAll("\n", `\n${indent}`)}`),
+  );
 
   if (profile) {
     const stale = findStaleSymlinks(profile);

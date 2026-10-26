@@ -105,7 +105,7 @@ node "$HOME\.agents\sync\bin\ag.mjs" new <name>
 
 The first terminal runs everything through `node`, because the Launcher's folder may not be on `PATH` yet:
 
-- **macOS and Linux:** when `~/.local/bin` is not on `PATH`, `ag` prints the line to add and the file to add it to, such as `export PATH="$HOME/.local/bin:$PATH"` in `~/.zshrc`. It prints it on every run until the folder is on `PATH`, and never edits the file itself.
+- **macOS and Linux:** when `~/.local/bin` is not on `PATH`, `ag` prints the line to add and the file to add it to, such as `export PATH="$HOME/.local/bin:$PATH"` in `~/.zshrc`. `ag init` and every command that syncs print it until the folder is on `PATH`, and `ag status` shows it too. `ag` never edits the file itself.
 - **Windows:** `ag` adds the folder to your user `PATH` itself, and says so.
 
 Plain `ag` works in a new terminal after that. A GUI app or an agent shell that reads no shell startup file needs both the Launcher's folder and `node` on its `PATH`.

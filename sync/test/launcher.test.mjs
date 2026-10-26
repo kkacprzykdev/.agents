@@ -98,7 +98,8 @@ test("a Launcher that cannot be written gets a warning with the node command, an
 
   const output = ok(world.ag(["sync"]));
 
-  assert.match(output, /warning: ag could not write the Launcher ~\/\.local\/bin\/ag \(\w+\)\. Run ag as: node .+ag\.mjs <command>/);
+  assert.ok(output.includes(`Run ag as: node "${storeAg()}" <command>`), output);
+  assert.match(output, /warning: ag could not write the Launcher ~\/\.local\/bin\/ag \(\w+\)\./);
   assert.equal(world.linkTarget(".cursor/rules/default-rule.mdc"), join(world.store, "profiles/default/artifacts/rules-profile-me/default-rule.mdc"));
 });
 
@@ -217,4 +218,43 @@ test("ag status reports a missing Launcher and writes nothing", () => {
 
   assert.match(output, /^Launcher: +~\/\.local\/bin\/ag is missing \(run ag sync\)$/m);
   assert.equal(existsSync(launcherDir()), false);
+});
+
+test("ag sync leaves a link to a marked file outside the store, and never writes through it", () => {
+  createDefault(world);
+  const elsewhere = join(world.base, "dotfiles-ag");
+  writeFileSync(elsewhere, '#!/bin/sh\n# ag launcher\nnode "/old/store/sync/bin/ag.mjs" "$@"\n');
+  rmSync(join(launcherDir(), "ag"));
+  symlinkSync(elsewhere, join(launcherDir(), "ag"), "file");
+
+  const output = ok(world.ag(["sync"]));
+
+  assert.equal(readFileSync(elsewhere, "utf8"), '#!/bin/sh\n# ag launcher\nnode "/old/store/sync/bin/ag.mjs" "$@"\n');
+  assert.match(output, /warning: ~\/\.local\/bin\/ag is not an ag Launcher, so ag left it\./);
+});
+
+test("ag sync makes a Launcher with the current text executable again", { skip: WINDOWS }, () => {
+  createDefault(world);
+  chmodSync(join(launcherDir(), "ag"), 0o644);
+
+  ok(world.ag(["sync"]));
+
+  assert.equal(lstatSync(join(launcherDir(), "ag")).mode & 0o111, 0o111);
+});
+
+test("on Windows, ag sync warns about another ag command in the Launcher's own folder", { skip: !WINDOWS }, () => {
+  createDefault(world);
+  writeFileSync(join(launcherDir(), "ag.exe"), "not really an exe\n");
+
+  const output = ok(world.ag(["sync"], { env: { PATH: pathWith(launcherDir()) } }));
+
+  assert.ok(output.includes(`warning: ~/.local/bin/ag.exe is another ag command in the Launcher's folder`), output);
+});
+
+test("ag status names the PATH line to add while the Launcher's folder is not on PATH", { skip: WINDOWS }, () => {
+  createDefault(world);
+
+  const output = ok(world.ag(["status"], { env: { SHELL: "/bin/zsh" } }));
+
+  assert.match(output, /^ +~\/\.local\/bin is not on PATH\. Add this line to ~\/\.zshrc, then open a new terminal:$/m);
 });
