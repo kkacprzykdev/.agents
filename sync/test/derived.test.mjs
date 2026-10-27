@@ -88,6 +88,13 @@ test("a Claude rule links into Claude and reaches Cursor as a Derived .mdc rule,
   assert.match(derived("codex/AGENTS.md"), new RegExp(`- \`${storePath(`${RULES}/always.md`)}\``));
 });
 
+test("a Claude rule's paths keep each glob whole, commas inside braces included", () => {
+  const RULES = `${PROFILE}/rules-profile-me`;
+  add({ [`${RULES}/web.md`]: '---\npaths: ["src/**/*.{ts,tsx}", lib/**] # web code\n---\n\nUse hooks.\n' });
+
+  assert.match(derived("cursor/rules/web.mdc"), /^---\nglobs: src\/\*\*\/\*\.\{ts,tsx\}, lib\/\*\*\nalwaysApply: false\n---\n/);
+});
+
 for (const [what, files, message] of [
   [
     "a rule in both formats",
@@ -274,6 +281,17 @@ test("a skill with only the Claude and Cursor key reaches Codex as a Derived fol
   );
   assert.equal(world.linkTarget(".cursor/skills/third-party"), storePath("skills/third-party"));
   assert.equal(world.exists(`${GENERATED}/codex/skills/third-party`), false);
+});
+
+test("a frontmatter value with a trailing comment keeps its meaning", () => {
+  add({
+    [`${SKILLS}/deploy/SKILL.md`]: "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true # user only\n---\n\nDeploy.\n",
+    [`${SUBAGENTS}/auditor.md`]: "---\nname: auditor\ndescription: Audits.\nreadonly: true # never writes\n---\n\nAudit.\n",
+  });
+
+  assert.match(derived("codex/skills/deploy/agents/openai.yaml"), /allow_implicit_invocation: false/);
+  assert.match(derived("codex/agents/auditor.toml"), /^sandbox_mode = "read-only"$/m);
+  assert.match(derived("claude/agents/auditor.md"), /^disallowedTools: Write, Edit, NotebookEdit$/m);
 });
 
 test("a Codex policy added to a skill's own agents/openai.yaml keeps the rest of that file", () => {

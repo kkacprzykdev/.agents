@@ -695,7 +695,11 @@ function derivedEntry(plan, linkName, source, rel, nodes, { isDirectory = false 
 
 // The marker every Derived Markdown file carries, right after any frontmatter.
 function markdownMarker(...sources) {
-  return `<!-- Derived by ag sync from ${sources.join(" and ")}. Edit ${sources.length > 1 ? "those files" : "that file"}. -->`;
+  return `<!-- ${derivedFrom(sources)} -->`;
+}
+
+function derivedFrom(sources) {
+  return `Derived by ag sync from ${sources.join(" and ")}. Edit ${sources.length > 1 ? "those files" : "that file"}.`;
 }
 
 const FRONTMATTER = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
@@ -708,20 +712,50 @@ function splitFrontmatter(text) {
     : { frontmatter: null, head: "", body: text };
 }
 
-// One top-level frontmatter key: its line, and its value as a string or, for a YAML list, a list. Quotes are removed.
+// One YAML scalar: the text inside its quotes, or the plain text without a trailing comment.
+function yamlScalar(text) {
+  const value = text.trim();
+  const quoted = value.match(/^(["'])(.*?)\1\s*(#.*)?$/);
+  return quoted ? quoted[2] : stripComment(value);
+}
+
+// The items of a YAML flow list or a comma list. A comma inside quotes, braces, or brackets stays in its item, as in
+// the glob src/**/*.{ts,tsx}.
+function listItems(text) {
+  const items = [];
+  let item = "";
+  let depth = 0;
+  let quote = null;
+  for (const char of text) {
+    if (quote) {
+      quote = char === quote ? null : quote;
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === "," && depth === 0) {
+      items.push(item);
+      item = "";
+      continue;
+    } else {
+      depth += "{[".includes(char) ? 1 : "}]".includes(char) ? -1 : 0;
+    }
+    item += char;
+  }
+  return [...items, item].map(yamlScalar).filter(Boolean);
+}
+
+// One top-level frontmatter key: its line, and its value as a string or, for a YAML list, a list.
 function frontmatterKey(frontmatter, key) {
   const all = lines(frontmatter ?? "");
   const index = all.findIndex((line) => line.startsWith(`${key}:`));
   if (index === -1) {
     return { line: null, value: undefined };
   }
-  const unquote = (value) => value.trim().replace(/^(["'])(.*)\1$/, "$2");
   const inline = all[index].slice(key.length + 1).trim();
   let value;
   if (inline.startsWith("[")) {
-    value = (parseInlineList(inline) ?? []).map(unquote).filter(Boolean);
-  } else if (inline) {
-    value = unquote(inline);
+    value = listItems(inline.replace(/\]\s*(#.*)?$/, "").slice(1));
+  } else if (inline && !inline.startsWith("#")) {
+    value = yamlScalar(inline);
   } else {
     value = [];
     for (const line of all.slice(index + 1)) {
@@ -729,7 +763,7 @@ function frontmatterKey(frontmatter, key) {
       if (!item) {
         break;
       }
-      value.push(unquote(item[1]));
+      value.push(yamlScalar(item[1]));
     }
   }
   return { line: all[index], value };
@@ -790,7 +824,7 @@ function cursorRuleFromClaude(artifact) {
   const { frontmatter, body } = splitFrontmatter(readFileSync(artifact.sourcePath, "utf8"));
   const description = frontmatterKey(frontmatter, "description").line;
   const paths = frontmatterKey(frontmatter, "paths").value;
-  const globs = typeof paths === "string" ? paths.split(",").map((path) => path.trim()).filter(Boolean) : paths ?? [];
+  const globs = typeof paths === "string" ? listItems(paths) : paths ?? [];
   const head = [
     "---",
     description,
@@ -859,7 +893,7 @@ const NUMBERING_NOTES = {
 const CODEX_USER_ONLY = "policy:\n  allow_implicit_invocation: false\n";
 
 function yamlMarker(...sources) {
-  return `# Derived by ag sync from ${sources.join(" and ")}. Edit ${sources.length > 1 ? "those files" : "that file"}.`;
+  return `# ${derivedFrom(sources)}`;
 }
 
 // Codex has no commands. Each one is a skill only the user invokes, as $<name>, that points at the command file.
