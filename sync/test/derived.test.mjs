@@ -207,7 +207,7 @@ test("a Markdown subagent links into Cursor and Claude, and reaches Codex as a D
   );
 });
 
-test("a read-only Markdown subagent stays read-only in Claude and Codex", () => {
+test("a read-only Markdown subagent stays read-only in Claude, and Codex gets the sandbox setting and a sentence that says so", () => {
   const source = storePath(`${SUBAGENTS}/reviewer.md`);
   add({ [`${SUBAGENTS}/reviewer.md`]: "---\nname: reviewer\ndescription: Reviews code.\nreadonly: true\n---\n\nReview.\n" });
 
@@ -219,7 +219,7 @@ test("a read-only Markdown subagent stays read-only in Claude and Codex", () => 
   );
   assert.equal(
     derived("codex/agents/reviewer.toml"),
-    `# Derived by ag sync from ${source}. Edit that file.\nname = "reviewer"\ndescription = "Reviews code."\nsandbox_mode = "read-only"\ndeveloper_instructions = '''\nReview.\n'''\n`,
+    `# Derived by ag sync from ${source}. Edit that file.\nname = "reviewer"\ndescription = "Reviews code."\nsandbox_mode = "read-only"\ndeveloper_instructions = '''\nYou are read-only. Change no file: do not create, edit, or delete one, and run no command that does.\n\nReview.\n'''\n`,
   );
 });
 

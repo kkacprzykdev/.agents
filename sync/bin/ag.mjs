@@ -1029,16 +1029,20 @@ function tomlText(text) {
 
 const READ_ONLY_TOOLS = "disallowedTools: Write, Edit, NotebookEdit";
 
+// Codex 0.164.0 runs a custom agent in the parent's sandbox, whatever its sandbox_mode, so a read-only one is also told.
+const CODEX_READ_ONLY = "You are read-only. Change no file: do not create, edit, or delete one, and run no command that does.\n\n";
+
 function codexSubagent(artifact, text) {
   const { frontmatter, body } = splitFrontmatter(text);
   const value = (key) => frontmatterKey(frontmatter, key).value;
   const name = typeof value("name") === "string" && value("name") ? value("name") : stem(artifact.name);
-  const instructions = body.replace(/^(\r?\n)+/, "");
+  const readOnly = value("readonly") === "true";
+  const instructions = `${readOnly ? CODEX_READ_ONLY : ""}${body.replace(/^(\r?\n)+/, "")}`;
   return [
     yamlMarker(artifact.sourcePath),
     `name = ${JSON.stringify(name)}`,
     `description = ${JSON.stringify(describe(text) || `The ${name} subagent.`)}`,
-    ...(value("readonly") === "true" ? ['sandbox_mode = "read-only"'] : []),
+    ...(readOnly ? ['sandbox_mode = "read-only"'] : []),
     `developer_instructions = ${tomlText(instructions && !instructions.endsWith("\n") ? `${instructions}\n` : instructions)}`,
     "",
   ].join("\n");

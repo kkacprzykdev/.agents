@@ -21,7 +21,7 @@ The adaptations below were checked in throwaway projects, with each agent's proj
 
 - Claude Code 2.1.310: a read-only subagent copy with `disallowedTools`.
 - Cursor CLI 2026.10.22-27dcf5f: a Derived `.mdc` rule from a Claude rule, with `alwaysApply: true` and with `globs`, and a subagent listed once when it is in both `.cursor/agents/` and `.claude/agents/`.
-- Codex CLI 0.164.0: the command skill's note for both numberings, and a Derived TOML subagent. Codex ran the subagent with its `developer_instructions`, but in the parent's sandbox: its `sandbox_mode = "read-only"` did not stop a write.
+- Codex CLI 0.164.0: the command skill's note for both numberings, and a Derived TOML subagent. Codex ran the subagent with its `developer_instructions`, but in the parent's sandbox: its `sandbox_mode = "read-only"` did not stop a write. With the sentence below at the start of its instructions, the same subagent refused the write.
 
 ## Portability notes
 
@@ -88,7 +88,7 @@ Sources: [Claude Code skills and commands](https://code.claude.com/docs/en/skill
 
 A subagent is a Markdown file, the format of Cursor and Claude, or a Codex TOML file:
 
-- **A Markdown subagent:** links in `~/.cursor/agents/` and `~/.claude/agents/`. Codex gets a Derived TOML with `name`, `description`, and the body copied into `developer_instructions`. `readonly: true` becomes `sandbox_mode = "read-only"`, and `model` is dropped, because a Cursor or Claude model name would break Codex.
+- **A Markdown subagent:** links in `~/.cursor/agents/` and `~/.claude/agents/`. Codex gets a Derived TOML with `name`, `description`, and the body copied into `developer_instructions`. `readonly: true` becomes `sandbox_mode = "read-only"`, and `model` is dropped, because a Cursor or Claude model name would break Codex. Codex 0.164.0 does not apply that `sandbox_mode`: a custom agent runs in the parent's sandbox. So the `developer_instructions` of a read-only subagent start with a sentence that tells it to change no file. That is an instruction, not a sandbox: a subagent in a session that may write can still write.
 - **A read-only Markdown subagent:** Claude reads no `readonly` key. When the subagent sets `readonly: true` and neither `tools` nor `disallowedTools`, Claude gets a Derived copy that adds `disallowedTools: Write, Edit, NotebookEdit`. Claude's Bash tool stays available to it.
 - **A Codex TOML subagent:** a link in `~/.codex/agents/`. Cursor and Claude get one shared Derived Markdown file built from `name`, `description`, and `developer_instructions`. `sandbox_mode = "read-only"` becomes both `readonly: true` and `disallowedTools: Write, Edit, NotebookEdit`, and each agent ignores the other's key.
 
