@@ -1,6 +1,6 @@
 # ~/.agents
 
-Link your global setup into every coding agent you use. One store holds it. `ag sync` puts a symlink to each file in each coding agent's global folder.
+Link your global setup into every coding agent you use. One store holds it. `ag sync` puts a symlink to each file in each coding agent's global folder. Where a coding agent reads another format, the link goes to a copy in that format, which `ag sync` writes for you.
 
 Many people use several coding agents, because they have different subscriptions. You want one simple workflow in all of them, on every computer. This store gives you that. It works only on your global setup. It never changes a project's own `.cursor/`, `.claude/`, `AGENTS.md`, or `CLAUDE.md`.
 
@@ -8,7 +8,8 @@ Many people use several coding agents, because they have different subscriptions
 
 ### Your setup, everywhere
 
-- Change a skill once, and every coding agent uses it right away. The links are symlinks.
+- Change a skill once, and every coding agent uses it. Most links go to your own file, so an edit shows up right away. Where a coding agent needs another format, `ag sync` rewrites its copy, and `ag status` says when one is out of date.
+- Bring your files from Cursor, Claude, or Codex as they are. Each one reaches all three coding agents.
 - Get the same setup on every computer. See [Set it up on another computer](#already-have-a-store).
 - Use any coding agent. A new one is one entry in `sync/runtimes.yaml`.
 - Run it on macOS, Linux, or Windows. You need only git and Node.js. The GitHub CLI is highly recommended.
@@ -45,22 +46,15 @@ This store does one job: your global setup, in profiles, on all your computers, 
 
 ## Current coverage
 
-- Cursor gets:
-  - Skills in `~/.cursor/skills/`
-  - Commands in `~/.cursor/commands/`
-  - Rules in `~/.cursor/rules/`
-  - Subagents in `~/.cursor/agents/`
-- Claude gets:
-  - Skills in `~/.claude/skills/`
-  - Commands in `~/.claude/commands/`
-  - Rules in `~/.claude/rules/`
-  - `AGENTS.md` and `CLAUDE.md` in `~/.claude/`
-- Codex gets:
-  - Skills in `~/.codex/skills/`
-  - `AGENTS.md` and `CLAUDE.md` in `~/.codex/`
-  - Commands and rules, only on a machine that opts in to the Codex parity script
+Every kind reaches Cursor, Claude, and Codex:
 
-Each coding agent reads the files in a slightly different way. Refer to [`docs/runtime-support.md`](./docs/runtime-support.md).
+- Skills in `~/.cursor/skills/`, `~/.claude/skills/`, and `~/.codex/skills/`
+- Commands in `~/.cursor/commands/` and `~/.claude/commands/`. Codex gets each one as a skill you invoke as `$<name>`, in `~/.codex/skills/cmd-<name>/`.
+- Rules in `~/.cursor/rules/` and `~/.claude/rules/`. Codex reads them by path from its `~/.codex/AGENTS.md`.
+- Subagents in `~/.cursor/agents/`, `~/.claude/agents/`, and `~/.codex/agents/`
+- `AGENTS.md` in `~/.claude/`, as the rule `~/.cursor/rules/AGENTS.mdc` in Cursor, and copied into `~/.codex/AGENTS.md` in Codex. `CLAUDE.md` only in `~/.claude/`.
+
+A file can be in the format of any of the three coding agents. Where another agent needs a different format, `ag sync` writes a Derived file into `~/.agents/sync/.generated/` and links that. A Derived file says which file it comes from. Edit that file, never the Derived one. Each coding agent reads the files in a slightly different way. Refer to [`docs/runtime-support.md`](./docs/runtime-support.md).
 
 ## Edit only this tree
 
@@ -126,9 +120,9 @@ Replace these placeholders:
 Do only the items that match what you already have. Every file that `ag sync` links is an artifact: your skills, rules, commands, and subagents (agents), your `AGENTS.md` and `CLAUDE.md`, and third-party skills, installed with [`npx skills`](https://github.com/vercel-labs/skills).
 
 - **Third-party skills:** copy the `skills` folder and the `.skill-lock.json` file from your old folder into `~/.agents`. There is no need to install them again.
-- **Artifacts in an agent home**, such as `~/.cursor/rules/`: move them into `~/.agents/profiles/<name>/artifacts/<kind>-profile-me/`. `<kind>` is `skills`, `rules`, `commands`, or `subagents`. Move rather than copy, because a real file left in an agent home can block the link that replaces it.
-- **Your old `AGENTS.md` and `CLAUDE.md`:** your profile already has both files, in `~/.agents/profiles/<name>/artifacts/instructions-profile-me/`. Merge the text of your old files, such as `~/.claude/CLAUDE.md.old`, into that `AGENTS.md`. Codex reads `AGENTS.md`. Claude reads `CLAUDE.md`, which imports `AGENTS.md` with its one line, `@~/.claude/AGENTS.md`. Put any lines for Claude only in `CLAUDE.md`, under the import. Then delete the old files.
-- **Other artifacts you wrote**, kept anywhere else on your computer: copy each one into the same profile folders. Give every rule the `.mdc` extension.
+- **Artifacts in an agent home**, such as `~/.cursor/rules/` or `~/.codex/agents/`: move them into `~/.agents/profiles/<name>/artifacts/<kind>-profile-me/`, in the format they have. `<kind>` is `skills`, `rules`, `commands`, or `subagents`. Move rather than copy, because a real file left in an agent home can block the link that replaces it. When you have one artifact in two agents' formats, such as a rule as `x.mdc` and `x.md`, keep one of them: `ag sync` makes the other, and stops with a Collision when both are there.
+- **Your old `AGENTS.md` and `CLAUDE.md`:** your profile already has both files, in `~/.agents/profiles/<name>/artifacts/instructions-profile-me/`. Merge the text of your old files, such as `~/.claude/CLAUDE.md.old`, into that `AGENTS.md`. Every coding agent gets the text of `AGENTS.md`. Claude reads `CLAUDE.md`, which imports `AGENTS.md` with its one line, `@~/.claude/AGENTS.md`. Put any lines for Claude only in `CLAUDE.md`, under the import. No other coding agent gets them. Then delete the old files.
+- **Other artifacts you wrote**, kept anywhere else on your computer: copy each one into the same profile folders. A rule is a Cursor `.mdc` rule or a Claude `.md` rule. A subagent is a Markdown file or a Codex `.toml` file.
 
 Then commit in `~/.agents`, run `ag push`, and run `ag sync`.
 
@@ -249,8 +243,8 @@ ag init [<url>]                       # turn a fresh clone into your own store: 
 ag new <name> [--from <parent>] [--protect] [--clean]
                                       # create a profile from main or a parent profile; --clean creates a clean profile from main
 ag use <profile>                      # switch ~/.agents to the profile's branch, then sync with that branch's ag
-ag sync [--dry-run]                   # recreate the symlinks in every coding agent for the Active profile's Lineage, and remove old ones
-ag status                             # whether Core is read-only, Active profile, Lineage, Migration levels, Edit worktree, protection, Launcher, stale symlinks
+ag sync [--dry-run]                   # rebuild the Derived files, recreate the symlinks in every coding agent for the Active profile's Lineage, and remove old ones
+ag status                             # whether Core is read-only, Active profile, Lineage, Migration levels, Edit worktree, protection, Launcher, stale symlinks and Derived files
 ag setup                              # name the Active profile's setup skill for your agent to run, or print the prompt to create it; a clean profile needs no setup
 ag owner <path>                       # the resolved store path, the branch that owns it, and where to edit it
 ag edit <branch>                      # switch the Edit worktree to a branch
@@ -286,7 +280,7 @@ With `--from <parent>`, the parent must have a setup skill at `profiles/<parent>
 
 An `ag` from before Profile migrations cannot hand the sync over. When it switches onto a profile whose `profile.yaml` has `migration-level`, its sync fails with `unknown key "migration-level"`. Run `ag sync` again: it runs the switched branch's `ag`. This stops happening on a branch once it has run `ag update` with the newer Core.
 
-**`ag sync`** stops on `main`, where there is no Active profile. It also stops on a `profile.yaml` with a `runtimes` line, because every profile links into every coding agent. Before anything else, it compares the Migration level of each Lineage profile with the Core migration level of `~/.agents`, the number of migrations in its `sync/migrations/`, never `origin`'s. When a profile is below it, a migration is pending: sync lists the profiles, changes nothing, and exits with code 3, which no other failure uses. Run `ag update`, or give the message to your coding agent. When a profile is above it, sync warns and continues. For each coding agent in `sync/runtimes.yaml`, it removes the existing symlinks in the target folders, then removes old links outside them, then creates fresh absolute-path symlinks. Old links come from a Runtime target or a coding agent that Core no longer lists. To find them, sync scans every agent home in `sync/runtimes.yaml` and every agent home it synced before on this computer, two levels deep, without following symlinked folders. It removes each symlink there that points into a profile folder, `artifacts/`, or `skills/` of the store, and that this sync does not create. Links into `sync/.generated/` belong to the Codex parity script and stay. Sync remembers the agent homes it synced in `.git/ag-agent-homes`, which is never committed. On the first run with this scan, that record is empty, so an agent home whose coding agent Core removed earlier is not cleaned on that computer. For each artifact kind, the sources are `skills/` (skills only), then `artifacts/<kind>-store-me`, then `artifacts/<kind>-core-me` when the store has no `upstream` remote, then each Lineage profile's `artifacts/<kind>-profile-me`, from the top down. A clean profile has no `artifacts/<kind>-store-me` or `artifacts/<kind>-core-me` source. A coding agent with `reads-store-skills: true` has no `skills/` source. The `instructions` kind has only the profile sources, and each of those folders may hold only `AGENTS.md` and `CLAUDE.md`. Its target is the agent home itself, where clearing the target touches only those two names, in any letter case. Every other file in the agent home stays as it is, and so does every symlink there that does not point into the store. Non-symlink files (e.g. `.DS_Store`) are left alone. Sync links only entries that git tracks on the current branch. Hidden entries, `desktop.ini`, and `Thumbs.db` in a source folder are not linked either. Sync names each untracked entry it skips, so it can be committed. A branch switch can leave a folder behind when it holds only ignored files, such as `.DS_Store`. Sync names those folders too, because a coding agent that reads `skills/` itself still sees them until they are deleted. Missing agent homes and missing source folders are skipped with a warning. If every source for a mapping is missing, its target folder is not cleared, though the scan still removes its links into the store. Missing target folders are created. It fails loudly on a name collision between sources, including names that differ only in letter case. Before it changes any coding agent, it checks the target folders of every coding agent. A real file or folder with the name of a store artifact is a Blocker: sync lists every Blocker it found and changes nothing. For a Blocker named `AGENTS.md` or `CLAUDE.md`, it names the `AGENTS.md` to move the text into, because an instructions folder accepts no other file name. Any other real file or folder that is not hidden is an Unmanaged artifact. Sync leaves it alone and lists it with the profile folder to move it into, so the store can manage it. Sync also tries one test link in each target folder first, so a failed sync leaves the old links in place. On Windows, directories are linked as junctions and files as symlinks, which need Developer Mode. Without it, `ag sync` stops with that hint. It also writes every Lineage profile's local files into `.git/info/exclude`, so they stay out of git on every branch. The root `.gitignore` also ignores every `.env*` file except `*.example` templates and `profiles/.env.active`, so env files stay out of git before anyone lists them.
+**`ag sync`** stops on `main`, where there is no Active profile. It also stops on a `profile.yaml` with a `runtimes` line, because every profile links into every coding agent. Before anything else, it compares the Migration level of each Lineage profile with the Core migration level of `~/.agents`, the number of migrations in its `sync/migrations/`, never `origin`'s. When a profile is below it, a migration is pending: sync lists the profiles, changes nothing, and exits with code 3, which no other failure uses. Run `ag update`, or give the message to your coding agent. When a profile is above it, sync warns and continues. It rebuilds every Derived file in `sync/.generated/`: it writes them all into a staged folder in `.git/`, then swaps that folder in, so a crash never leaves half of them. For each coding agent in `sync/runtimes.yaml`, it removes the existing symlinks in the target folders, then removes old links outside them, then creates fresh absolute-path symlinks, each to an artifact or to its Derived file. What each coding agent gets from each source format is in [`docs/runtime-support.md`](./docs/runtime-support.md). Old links come from a Runtime target or a coding agent that Core no longer lists. To find them, sync scans every agent home in `sync/runtimes.yaml` and every agent home it synced before on this computer, two levels deep, without following symlinked folders. It removes each symlink there that points into a profile folder, `artifacts/`, `skills/`, or `sync/.generated/` of the store, and that this sync does not create. Sync remembers the agent homes it synced in `.git/ag-agent-homes`, which is never committed. On the first run with this scan, that record is empty, so an agent home whose coding agent Core removed earlier is not cleaned on that computer. For each artifact kind, the sources are `skills/` (skills only), then `artifacts/<kind>-store-me`, then `artifacts/<kind>-core-me` when the store has no `upstream` remote, then each Lineage profile's `artifacts/<kind>-profile-me`, from the top down. A clean profile has no `artifacts/<kind>-store-me` or `artifacts/<kind>-core-me` source. A coding agent with `reads-store-skills: true` has no `skills/` source. The `instructions` kind has only the profile sources, and each of those folders may hold only `AGENTS.md` and `CLAUDE.md`. Its target is the agent home itself, where clearing the target touches only the names that coding agent gets, in any letter case: both in Claude, and only `AGENTS.md` in Codex. Every other file in the agent home stays as it is, and so does every symlink there that does not point into the store. Non-symlink files (e.g. `.DS_Store`) are left alone. Sync links only entries that git tracks on the current branch. Hidden entries, `desktop.ini`, and `Thumbs.db` in a source folder are not linked either. Sync names each untracked entry it skips, so it can be committed. A branch switch can leave a folder behind when it holds only ignored files, such as `.DS_Store`. Sync names those folders too, because a coding agent that reads `skills/` itself still sees them until they are deleted. Missing agent homes and missing source folders are skipped with a warning. If every source for a mapping is missing, its target folder is not cleared, though the scan still removes its links into the store. Missing target folders are created. It fails loudly on a name collision between sources, including names that differ only in letter case. One name in two source formats is a Collision too: a rule as `x.mdc` and `x.md`, a subagent as `x.md` and `x.toml`, and a rule named `AGENTS` next to an `AGENTS.md`. The message names both files. Keep one of them, because sync makes the other format. Before it changes any coding agent, it checks the target folders of every coding agent. A real file or folder with the name of a store artifact is a Blocker: sync lists every Blocker it found and changes nothing. For a Blocker named `AGENTS.md` or `CLAUDE.md`, it names the `AGENTS.md` to move the text into, because an instructions folder accepts no other file name. Any other real file or folder that is not hidden is an Unmanaged artifact. Sync leaves it alone and lists it with the profile folder to move it into, so the store can manage it. Sync also tries one test link in each target folder first, so a failed sync leaves the old links in place. On Windows, directories are linked as junctions and files as symlinks, which need Developer Mode. Without it, `ag sync` stops with that hint. It also writes every Lineage profile's local files into `.git/info/exclude`, so they stay out of git on every branch. The root `.gitignore` also ignores every `.env*` file except `*.example` templates and `profiles/.env.active`, so env files stay out of git before anyone lists them.
 
 **`ag update`** first writes the Lineage's local files into `.git/info/exclude`, so a file just added to `local-files` does not count as a change. It refuses when a checkout is not ready. When the store has an `upstream` remote, it fast-forwards `main` to `upstream/main` in `~/.agents-edit`. When `main` or `origin/main` has commits that `upstream/main` does not, it stops before it merges or pushes anything. It lists those commits and prints the two commands that reset `main` to `upstream/main`. Those commands drop the listed commits, so copy any change you want to keep into a profile first. When `origin/main` has commits that the local `main` does not, for example from another computer, it pulls them into `main` in `~/.agents-edit`, so the Edit worktree never rests on an old `main`. When the local `main` has commits that `origin` does not, it pulls and pushes `main` in `~/.agents-edit`, because profiles merge `main` from `origin`. When `sync/bin/ag.mjs` on `main` differs from the running `ag`, the update starts that file in a new process and lets it finish. The process that started the update keeps its old code, so it would not understand a new artifact kind or a new coding agent. Then, for each branch of the Lineage, from the top down:
 
@@ -299,7 +293,7 @@ Ancestors are updated in `~/.agents-edit`. The Active profile's branch is update
 
 A Profile migration that needs a decision stops the update the same way. Its changes so far stay uncommitted, and the level is not raised. `ag update` prints the checkout, the branch, the steps to finish, and the commit message. Do the steps, or give the message to your coding agent, commit with that message, and run `ag update` again. The migration then sees its work is done, and `ag update` commits the raised level. A migration that crashes puts the profile folder back to its last commit: tracked changes are reverted and new files are removed, but ignored local files stay. Levels committed before it stay too. `ag update` prints the error, and runs that migration again on the next run.
 
-**The Launcher.** `ag init` and every command that syncs (`sync`, `use`, `new`, `update`, `skills add`) write it. A missing Launcher is written, one that an older `ag` wrote is rewritten to the current text, and a link from its path into the store's `sync/bin/` is replaced by a Launcher that keeps the link's target. Each file holds a marker line, `# ag launcher` or `@rem ag launcher`, and the absolute path of `~/.agents`. Any other file at the Launcher's path stays, and `ag` names it. When the Launcher cannot be written, `ag` warns with the `node` command to use instead. A Launcher problem, a `PATH` hint, or a warning about another `ag` never stops a command, and Sync still links. `--dry-run` reports what it would do and writes nothing. On Windows, `ag` reads and writes only the user `PATH`, through PowerShell, never with `setx`.
+**The Launcher.** `ag init` and every command that syncs (`sync`, `use`, `new`, `update`, `skills add`) write it. A missing Launcher is written, one that an older `ag` wrote is rewritten to the current text, and a link from its path to the store's `sync/bin/ag.mjs` is replaced by a Launcher. Each file holds a marker line, `# ag launcher` or `@rem ag launcher`, and the absolute path of `~/.agents`. Any other file at the Launcher's path stays, and `ag` names it. When the Launcher cannot be written, `ag` warns with the `node` command to use instead. A Launcher problem, a `PATH` hint, or a warning about another `ag` never stops a command, and Sync still links. `--dry-run` reports what it would do and writes nothing. On Windows, `ag` reads and writes only the user `PATH`, through PowerShell, never with `setx`.
 
 **`ag status`** prints the Launcher: each file with its target, whether its folder is on `PATH`, and the warnings about other `ag` commands. It only reports, and writes nothing. It also prints one line with each Lineage profile's Migration level against the Core migration level, for example `Migration level: default 3/3, work 2/3 (run ag update)`. Its stale-link report uses the same scan as `ag sync`. On `main`, where there is no Active profile, it prints neither the Migration levels nor the stale links.
 
@@ -407,6 +401,7 @@ claude:
     skills: skills
     commands: commands
     rules: rules
+    subagents: agents
     instructions: .
   link-ext:
     rules: .md
@@ -415,12 +410,16 @@ codex:
   reads-store-skills: true
   targets:
     skills: skills
+    commands: skills
+    subagents: agents
     instructions: .
 ```
 
-A kind without a target is not linked into that coding agent. `link-ext: .md` gives each file link of that kind the extension, so Claude can load `.mdc` rules.
+A target receives links to artifacts, or to their Derived files. A kind without a target gets no links in that coding agent: Codex's rules reach it by path through its Derived `AGENTS.md`, and Cursor's Global instructions through its Derived rule `AGENTS.mdc`. `link-ext: .md` gives each file link of that kind the extension, so Claude can load `.mdc` rules. Codex's commands share `~/.codex/skills/` with its skills, as `cmd-<name>` folders.
 
-`instructions: .` links the Global instructions files, `AGENTS.md` and `CLAUDE.md`, into the agent home itself. There `ag sync` manages only those two names. It never removes or lists any other file or symlink in the agent home.
+The adapters that write the Derived files live in `sync/bin/ag.mjs`. They pick by each file's source format and by the coding agent's name, so a mapping never names them. A coding agent they do not know gets plain links.
+
+`instructions: .` links the Global instructions files into the agent home itself. There `ag sync` manages only the names that coding agent gets. It never removes or lists any other file or symlink in the agent home.
 
 `reads-store-skills: true` marks a coding agent that reads `~/.agents/skills/` on its own. Codex does, so `ag sync` does not link third-party skills into `~/.codex/skills/`. A link there would show each skill twice. Store and profile skills are still linked.
 

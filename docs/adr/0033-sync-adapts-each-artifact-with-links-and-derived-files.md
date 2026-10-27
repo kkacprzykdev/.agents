@@ -1,0 +1,24 @@
+# Sync adapts each artifact for every coding agent with links and Derived files
+
+Every artifact in the Active profile's Global setup reaches Cursor, Claude, and Codex, whatever its kind and whatever agent's format it was written in. A profile keeps each artifact in the native format of the coding agent it came from, and Sync never edits it.
+
+- **Link where the format fits.** Sync links the original wherever an agent can read it as it is. When only the extension differs, the link gets the other extension, as Claude's `x.md` links to the Cursor rule `x.mdc`.
+- **Derive where the content must differ.** Only then does Sync write a Derived file: a file in `sync/.generated/<agent>/`, built from one or more artifacts, and linked like an artifact. A Derived file for both Cursor and Claude lives in `sync/.generated/shared/`. Each Markdown Derived file carries a marker right after any frontmatter, and YAML and TOML ones carry it as a comment: `Derived by ag sync from <source path>. Edit that file.`
+- **Path or copy.** Codex's Derived `AGENTS.md` lists every rule by path, and a Codex command skill points at its command file, so each text keeps one source. Cursor's `AGENTS.mdc` copies the text of `AGENTS.md`, because Cursor reads a file named in a rule only when it thinks it needs it. A Codex TOML subagent copies the body into `developer_instructions`. Every other Derived file is a copy with one change applied.
+- **Location.** `sync/.generated/` sits in the Canonical store and git ignores it, so Derived files never cause a merge conflict or a commit, and never sit in a profile. The Edit worktree is never a source.
+- **Rebuild on every run.** Each Sync rebuilds every Derived file into a staged folder in the clone's git directory, then swaps it in, so a crash never leaves half a folder. There is no incremental rebuild. Sync owns every link into `sync/.generated/`: its scan removes the ones the current plan does not make (ADR 0031). `ag status` rebuilds the Derived files in memory and lists the ones that differ from what is on disk, so a coding agent knows when to run `ag sync`.
+- **Adapters in Core's code.** The adapters pick by each file's source format, so `sync/runtimes.yaml` stays a list of targets and no user edits adapter settings. What each adapter does is in [`docs/runtime-support.md`](../runtime-support.md).
+- **Collisions.** One name in two source formats is a Collision, because each format is derived from the other: a rule as `x.mdc` and `x.md`, and a subagent as `x.md` and `x.toml`. So is a rule named `AGENTS` next to an `AGENTS.md`, which Cursor's Derived `AGENTS.mdc` comes from. Sync checks every Collision before it changes any Agent home.
+- **Blockers.** A real file in an Agent home with the name of a link Sync makes is a Blocker, whether the link goes to an artifact or to a Derived file. So a Derived file never becomes a real file in an Agent home.
+- **Command skills.** Codex has no commands, so each one becomes the Derived skill folder `cmd-<name>`, with `name: <name>` in its `SKILL.md`. Codex takes the name from `SKILL.md`, so the user invokes it as `$<name>`. The prefix keeps a command and a profile skill with the same name from needing the same link in `~/.codex/skills/`. Codex then lists both, which is accepted.
+
+## Considered Options
+
+- **One canonical format of Core's own** (issue #2; rulesync's shared fields with per-agent overrides): every user would rewrite the files they bring from Cursor, Claude, or Codex.
+- **Cursor's formats as the canonical ones, translated for the others** (issue #2): a user who comes from Claude or Codex would still rewrite their files.
+- **Real files in the Agent homes with a manifest** (skillshare, rulesync, ruler): a real file with a managed name is a Blocker, so Sync would stop on its own output.
+- **Derived files committed in the profile:** they go stale whenever a source changes, and they cause merge conflicts between profiles.
+- **Rebuilding only stale files, by hash or time:** more code for a rebuild that takes milliseconds.
+- **Every rule's text pasted into Codex's instructions** (rulesync, ruler): the copies grow toward Codex's 32 KiB limit for instruction files, and each rule's frontmatter is lost.
+- **A Codex `AGENTS.override.md` that lists everything by path:** it hides the user's own override file, and the main instructions are then read only on request.
+- **Commands turned into user-invoked skills through a Profile migration:** it rewrites user files, and Cursor skills do not substitute `$ARGUMENTS`.

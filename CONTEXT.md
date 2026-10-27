@@ -87,7 +87,7 @@ A skill, command, rule, subagent, or Global instructions file that lives inside 
 _Avoid_: Local-only artifact, private skill, personal artifact directories at the store root
 
 **Global instructions file**:
-A profile's `AGENTS.md` or `CLAUDE.md`, in its `artifacts/instructions-profile-me/` folder. `ag sync` links it into the Agent home of Claude and Codex. Only one profile in a Lineage can have each file, and a Root profile starts with both.
+A profile's `AGENTS.md` or `CLAUDE.md`, in its `artifacts/instructions-profile-me/` folder. `AGENTS.md` holds the instructions for every Coding agent: `ag sync` links it into Claude, and Codex and Cursor get Derived files that copy its text. `CLAUDE.md` is Claude-only. It imports `AGENTS.md` with `@~/.claude/AGENTS.md`, `ag sync` links it only into Claude, and nothing from it reaches another agent. Only one profile in a Lineage can have each file, and a Root profile starts with both. A child profile that needs more global text uses a rule with `alwaysApply: true`.
 _Avoid_: Memory file, global rule, context file
 
 **Store artifact**:

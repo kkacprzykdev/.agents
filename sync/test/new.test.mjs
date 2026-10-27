@@ -73,12 +73,14 @@ test("ag new refuses before creating anything when a real global instruction fil
   writeFileSync(join(world.home, ".claude/CLAUDE.md"), "mine\n");
   writeFileSync(join(world.home, ".codex/AGENTS.md"), "mine\n");
   writeFileSync(join(world.home, ".cursor/AGENTS.md"), "cursor reads no global AGENTS.md\n");
+  writeFileSync(join(world.home, ".codex/CLAUDE.md"), "codex reads no CLAUDE.md\n");
 
   const output = fails(world.ag(["new", "default"]));
 
   assert.match(output, /These real global instruction files would block ag sync, so ag new changed nothing:/);
   assert.match(output, /  ~\/\.claude\/CLAUDE\.md\n  ~\/\.codex\/AGENTS\.md\n/);
   assert.doesNotMatch(output, /\.cursor/);
+  assert.doesNotMatch(output, /\.codex\/CLAUDE\.md/);
   assert.match(output, /Rename each one, for example to CLAUDE\.md\.old\./);
   assert.equal(world.git(world.store, "branch", "--list", "default"), "");
   assert.equal(world.git(world.store, "branch", "--show-current"), "main");
@@ -86,10 +88,10 @@ test("ag new refuses before creating anything when a real global instruction fil
 
   renameSync(join(world.home, ".claude/CLAUDE.md"), join(world.home, ".claude/CLAUDE.md.old"));
   rmSync(join(world.home, ".codex/AGENTS.md"));
-  symlinkSync(join(world.home, ".claude/CLAUDE.md.old"), join(world.home, ".codex/CLAUDE.md"));
+  symlinkSync(join(world.home, ".claude/CLAUDE.md.old"), join(world.home, ".codex/AGENTS.md"));
 
   ok(world.ag(["new", "default"]));
-  assert.equal(world.linkTarget(".codex/CLAUDE.md"), join(world.store, INSTRUCTIONS, "CLAUDE.md"));
+  assert.equal(world.linkTarget(".codex/AGENTS.md"), join(world.store, "sync/.generated/codex/AGENTS.md"));
 });
 
 test("ag new from a parent checks only the instruction files its Lineage has, and a clean profile checks none", () => {
