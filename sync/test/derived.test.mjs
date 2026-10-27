@@ -85,7 +85,7 @@ test("a Claude rule links into Claude and reaches Cursor as a Derived .mdc rule,
   assert.equal(world.exists(".cursor/rules/scoped.md", world.home), false);
   assert.equal(world.linkTarget(".cursor/rules/default-rule.mdc"), storePath(`${RULES}/default-rule.mdc`));
   assert.equal(world.linkTarget(".claude/rules/default-rule.md"), storePath(`${RULES}/default-rule.mdc`));
-  assert.match(derived("codex/AGENTS.md"), new RegExp(`- \`${storePath(`${RULES}/always.md`)}\``));
+  assert.ok(derived("codex/AGENTS.md").includes(`- \`${storePath(`${RULES}/always.md`)}\``));
 });
 
 test("a Claude rule's paths keep each glob whole, commas inside braces included", () => {
