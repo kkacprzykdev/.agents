@@ -41,9 +41,22 @@ A question keeps its number for the whole session, also when you write a round a
 
 One spec ships the whole change. Propose a follow-up issue only when the user asks for one.
 
-## 4. Spec
+## 4. Review the decision log
 
-The user decides when the design is clear. Keep grilling until they run `/to-spec`. It writes the spec from the decision log and the conversation.
+The user decides when the design is clear. Keep grilling until they request `to-spec` or `/to-spec`. That request starts this review automatically, before spec creation.
+
+Update `decisions.md` with the latest answers, then start a read-only review subagent. Give it the decision log, the full session transcript (including earlier rounds and corrections), and the original issue with its comments. The reviewer compares the log against the discussion, not just a summary or the log itself. If the full transcript cannot be retrieved, say what is missing and resolve that gap before continuing.
+
+Ask it to report missing or misstated decisions, contradictions, rejected or superseded options presented as agreed, and proposals presented as user decisions. It also checks that the log preserves agreed details, options and their sources, planned doc changes, testing decisions, and checks after merge. Each finding cites the relevant discussion and log entry. Wait for it, as step 3 says.
+
+- **A finding that only restores what the user agreed:** verify it against the discussion, fix the decision log, and list the fixes for the user.
+- **A finding that needs a new decision:** ask it in the next round, keeping the question numbering from step 3. Record the answer before continuing.
+
+Once every finding is resolved and the log reflects the latest answers, continue automatically to step 5. The user does not need to request `to-spec` again. This review is separate from the spec review in step 6.
+
+## 5. Spec
+
+Run `/to-spec` using the reviewed decision log and the conversation.
 
 The spec carries these sections beside the ones `/to-spec` writes:
 
@@ -56,13 +69,13 @@ The spec carries these sections beside the ones `/to-spec` writes:
 
 In every section of the spec except Check after merge, name domain concepts with glossary terms. Use a path or a code snippet only where the user explicitly chose or accepted that exact path or code during the session, and write it into the spec, because `/core-implement` reads only the issue. This replaces the "no file paths or code snippets" rule of `/to-spec` and `/to-tickets`, and their prototype exception. Name each doc, ADR, and test seam so that it can't be mistaken: by its title, its ADR number, or an agreed path. When a domain concept has no glossary term, describe it in plain words. When the design depends on it, ask the user for a term before `/to-spec`, and add the term to the planned doc changes. Check after merge may use real paths and commands, because the user runs its steps right after merging.
 
-## 5. Review the spec
+## 6. Review the spec
 
-When `/to-spec` has published the spec, start a read-only review subagent. Give it the spec issue, the decision log, the session transcript's file path, and step 4 of this command. It reports decisions the spec misses, decisions it states wrongly, and breaks of step 4. Wait for it, as step 3 says.
+When `/to-spec` has published the spec, start a read-only review subagent. Give it the spec issue, the decision log, the session transcript's file path, and step 5 of this command. It reports decisions the spec misses, decisions it states wrongly, and breaks of step 5. Wait for it, as step 3 says.
 
 - **A finding that only restates a decision the user made:** fix it in the spec issue's body, and list the fixes for the user.
 - **A finding that needs a new decision:** ask it in a last round, with the next free numbers. Then add the decisions to the decision log and to the spec issue's body.
 
-## 6. Close the original issue
+## 7. Close the original issue
 
 Offer to comment on the original issue that the spec supersedes it, with a link to the spec, and to close it. Do it only when the user agrees. Then suggest `/to-tickets`, to split the spec into tickets, or `/core-implement` with the spec.
