@@ -364,7 +364,7 @@ test("a skill whose text Claude expands keeps a copy for Cursor and Claude, and 
     derived("shared/skills/release/SKILL.md"),
     `---\nname: release\ndescription: Release.\ndisable-model-invocation: true\n---\n\n<!-- Derived by ag sync from ${storePath(`${SKILLS}/release/SKILL.md`)} and ${storePath(`${SKILLS}/release/agents/openai.yaml`)}. Edit those files. -->\n\nRelease $ARGUMENTS.\n`,
   );
-  assert.match(derived("codex/skills/deploy/SKILL.md"), /\n\nRead `.*\/deploy\/SKILL\.md` in full/);
+  assert.ok(derived("codex/skills/deploy/SKILL.md").includes(`\n\nRead \`${storePath(`${SKILLS}/deploy/SKILL.md`)}\` in full`));
 });
 
 test("a Codex policy written as a one-line mapping counts as Codex's policy", () => {
