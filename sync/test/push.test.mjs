@@ -13,7 +13,7 @@ test("ag push pushes a branch with no protected profile, from the checkout it ru
   ok(world.ag(["new", "work", "--from", "default", "--protect"]));
   ok(world.ag(["edit", "default"]));
   world.write("note.txt", "from default\n", world.edit);
-  world.commitAll(world.edit, "Add note");
+  world.commitPastHook(world.edit, "Add note");
 
   ok(world.ag(["push"], { cwd: world.edit }));
 

@@ -18,7 +18,7 @@ const branch = () => world.git(world.store, "branch", "--show-current");
 function stubAgOn(profile, status) {
   ok(world.ag(["new", profile]));
   world.write("sync/bin/ag.mjs", `console.log("stub ag:", process.argv.slice(2).join(" "));\nprocess.exit(${status});\n`);
-  world.commitAll(world.store, "Use a stub ag");
+  world.commitPastHook(world.store, "Use a stub ag");
   world.git(world.store, "push", "-q", "origin", profile);
   world.git(world.store, "switch", "-q", "default");
 }
@@ -117,7 +117,7 @@ test("an ag from before migrations fails on migration-level after switching, and
   world.write("sync/runtimes.yaml", oldRuntimesSource());
   world.write("profiles/legacy/profile.yaml", "parent: main\n");
   rmSync(join(world.store, "sync/migrations"), { recursive: true, force: true });
-  world.commitAll(world.store, "Go back to the ag from before migrations");
+  world.commitPastHook(world.store, "Go back to the ag from before migrations");
   ok(world.ag(["push"]));
   ok(world.ag(["sync"]));
 

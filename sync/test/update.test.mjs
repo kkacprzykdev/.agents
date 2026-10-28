@@ -52,7 +52,7 @@ test("ag update stops on a conflict with git's output and the checkout, then con
   ok(world.ag(["push"], { cwd: world.edit }));
   ok(world.ag(["update"]));
   world.write("shared.txt", "default\n");
-  world.commitAll(world.store, "Change shared on default");
+  world.commitPastHook(world.store, "Change shared on default");
   ok(world.ag(["push"]));
   world.write("shared.txt", "main\n", world.edit);
   world.commitAll(world.edit, "Change shared on main");
@@ -135,7 +135,7 @@ test("after a conflict on an ancestor, the rerun ends with the Edit worktree on 
   ok(world.ag(["update"]));
   ok(world.ag(["edit", "default"]));
   world.write("shared.txt", "default\n", world.edit);
-  world.commitAll(world.edit, "Change shared on default");
+  world.commitPastHook(world.edit, "Change shared on default");
   ok(world.ag(["push"]));
   ok(world.ag(["edit", "main"]));
   world.write("shared.txt", "main\n", world.edit);

@@ -25,7 +25,7 @@ const editRuntimes = (from, to) => {
   const content = world.read("sync/runtimes.yaml");
   assert.ok(content.includes(from), from);
   world.write("sync/runtimes.yaml", content.replace(from, to));
-  world.commitAll(world.store, "Change the runtime mappings");
+  world.commitPastHook(world.store, "Change the runtime mappings");
 };
 const CURSOR = "cursor:\n  home: ~/.cursor\n  targets:\n    skills: skills\n    commands: commands\n    rules: rules\n    subagents: agents\n";
 
@@ -133,7 +133,7 @@ test("after ag use switches to a branch whose Core does not map Codex, Codex kee
   ok(world.ag(["new", "older"]));
   const runtimes = world.read("sync/runtimes.yaml");
   world.write("sync/runtimes.yaml", runtimes.slice(0, runtimes.indexOf("codex:")));
-  world.commitAll(world.store, "Map no Codex, as an older Core did");
+  world.commitPastHook(world.store, "Map no Codex, as an older Core did");
   ok(world.ag(["push"]));
   ok(world.ag(["use", "default"]));
   assert.equal(world.linkTarget(".codex/AGENTS.md"), join(world.store, "sync/.generated/codex/AGENTS.md"));

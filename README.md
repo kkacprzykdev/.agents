@@ -209,7 +209,7 @@ Each profile lives on its own branch, named after the profile. A Root profile is
 │   ├── migrations/      # Profile migrations: 0001-<slug>.mjs, numbered without gaps
 │   ├── runtimes.yaml    # runtime mappings: agent homes and target folders
 │   └── test/            # node:test suite
-├── .githooks/           # pre-push (push protection) and pre-commit (read-only Core, runs the ag tests)
+├── .githooks/           # pre-push (push protection) and pre-commit (guards Core, runs the ag tests)
 ├── .github/workflows/   # runs the ag tests on Linux, macOS, and Windows
 ├── .gitattributes       # Unix line endings in every checkout
 ├── LICENSE              # MIT, covers Core only
@@ -314,6 +314,8 @@ Every store path has one owning branch. `ag owner <path>` prints the store path 
 - Other files directly in `profiles/`, such as `profiles/.env.active`, belong to the Active profile.
 - A third-party skill belongs to the highest branch in the Lineage that contains it. A new one, the `skills/` folder itself, and `.skill-lock.json` belong to the Active profile.
 - Everything else belongs to `main`.
+
+In a store that owns its Core, the `pre-commit` hook rejects a commit on a profile branch that stages a file outside `profiles/`, `skills/`, and `.skill-lock.json`, so a Core change lands on `main`. A branch is a profile branch when it has its own `profiles/<branch>/profile.yaml`, so the branch of a Core change worktree passes. A commit that concludes a merge passes too.
 
 In a store with an Upstream store, Core is read-only, and `ag status` prints `Core: read-only, from <url>`. `ag owner` refuses every path that belongs to `main`, and `ag edit main` refuses too. `ag push` and `ag update` refuse while `main` has commits that `upstream/main` does not, and print how to reset it. The `pre-commit` hook rejects a raw `git commit` on `main`, and a commit on any other branch that stages a file outside `profiles/`, `skills/`, and `.skill-lock.json`. A commit that concludes a merge passes. The message of `ag owner` and `ag edit` says where the change goes instead:
 

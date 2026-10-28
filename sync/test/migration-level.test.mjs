@@ -15,7 +15,7 @@ test("ag sync refuses with its own exit code when a migration is pending on this
   createDefault(world);
   ok(world.ag(["new", "work", "--from", "default"]));
   world.write("sync/migrations/0001-add-notes.mjs", writes("notes.md", "notes\n"));
-  world.commitAll(world.store, "Take a migration without ag update");
+  world.commitPastHook(world.store, "Take a migration without ag update");
   world.write("default-rule.md", "real file\n", join(world.home, ".claude/rules"));
   rmSync(join(world.home, ".cursor/rules/default-rule.mdc"));
 
