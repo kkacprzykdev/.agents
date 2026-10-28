@@ -29,7 +29,7 @@ A folder in an Agent home (e.g. `~/.cursor/skills/`) that receives symlinks poin
 _Avoid_: Destination, install location
 
 **Runtime mapping**:
-One Coding agent's entry in `sync/runtimes.yaml`: its Agent home and the target folder for each artifact kind. A target receives links to artifacts or to their Derived files. Two kinds may share one target, as Codex's commands and skills do in `~/.codex/skills/`. The adapters that decide when a kind needs a Derived file live in Core's code and pick by each file's source format, so a mapping never names them. `reads-store-skills: true` marks a coding agent that reads third-party skills from `~/.agents/skills/` itself, so sync does not link them into it. Core owns every runtime mapping, and every profile links into every coding agent.
+One Coding agent's entry in `sync/runtimes.yaml`: its Agent home and the target folder for each artifact kind. A target receives links to artifacts or to their Derived files. Two kinds may share one target, as Codex's commands and skills do in `~/.codex/skills/`. The adapters that decide when a kind needs a Derived file live in Core's code and pick by each file's source format, so a mapping never names them. `agent-owned` lists the Agent-owned entries of its Agent home. `reads-store-skills: true` marks a coding agent that reads third-party skills from `~/.agents/skills/` itself, so sync does not link them into it. Core owns every runtime mapping, and every profile links into every coding agent.
 _Avoid_: sync.yaml, a per-profile copy of the mappings, a per-profile runtimes list
 
 **Link mapping**:
@@ -68,8 +68,11 @@ _Avoid_: Link, alias, pointer
 A real file or directory (not a symlink) in a runtime target that occupies the name of an artifact sync needs to create. Sync checks every runtime target first, lists every Blocker, and aborts before it changes any runtime.
 _Avoid_: Conflict, obstruction
 
+**Agent-owned entry**:
+A file or directory that a Coding agent keeps in its own Agent home, such as Claude's `~/.claude/skills/synced/`, which holds the skills of the user's account. Its Runtime mapping lists it by path from the Agent home. Sync never removes, lists, or links over it, and its scan for old links skips it. An artifact with the name of one stops sync before it changes anything.
+
 **Unmanaged artifact**:
-A real file or directory in a runtime target that is not a Blocker and not hidden. The store does not manage it. Sync leaves it in place and lists it, with the profile folder to move it into.
+A real file or directory in a runtime target that is not a Blocker, not hidden, and not an Agent-owned entry. The store does not manage it. Sync leaves it in place and lists it, with the profile folder to move it into.
 _Avoid_: Leftover, orphan, stray file
 
 **Launcher**:

@@ -2,6 +2,8 @@
 # A target receives links to artifacts or to their Derived files. The adapters in sync/bin/ag.mjs decide which.
 # A kind without a target gets no links in that runtime.
 # The target "." is the agent home itself. There ag sync manages only the instruction files that runtime gets.
+# agent-owned lists entries the coding agent keeps in its own home, by path from that home. ag sync never removes,
+# lists, or links over them, and an artifact with one of their names stops it.
 cursor:
   home: ~/.cursor
   targets:
@@ -17,6 +19,9 @@ claude:
     rules: rules
     subagents: agents
     instructions: .
+  agent-owned:
+    # Claude downloads the skills of the user's account here and updates them itself.
+    - skills/synced
 codex:
   home: ~/.codex
   # Codex reads third-party skills from ~/.agents/skills itself. A link in ~/.codex/skills would show each one twice.

@@ -409,7 +409,7 @@ function checkMigrationLevels(profile) {
 function parseRuntimesYaml(content) {
   const runtimes = {};
   let runtime = null;
-  let inTargets = false;
+  let section = null;
 
   for (const rawLine of lines(content)) {
     const line = stripComment(rawLine);
@@ -419,9 +419,9 @@ function parseRuntimesYaml(content) {
 
     let match = line.match(/^([A-Za-z0-9_-]+):$/);
     if (match) {
-      runtime = { home: null, readsStoreSkills: false, targets: {} };
+      runtime = { home: null, readsStoreSkills: false, targets: {}, agentOwned: [] };
       runtimes[match[1]] = runtime;
-      inTargets = false;
+      section = null;
       continue;
     }
     if (!runtime) {
@@ -431,24 +431,35 @@ function parseRuntimesYaml(content) {
     match = line.match(/^  home:\s*(\S+)$/);
     if (match) {
       runtime.home = match[1];
-      inTargets = false;
+      section = null;
       continue;
     }
 
     match = line.match(/^  reads-store-skills:\s*(true|false)$/);
     if (match) {
       runtime.readsStoreSkills = match[1] === "true";
-      inTargets = false;
+      section = null;
       continue;
     }
 
-    if (/^  targets:$/.test(line)) {
-      inTargets = true;
+    match = line.match(/^  (targets|agent-owned):$/);
+    if (match) {
+      section = match[1];
+      continue;
+    }
+
+    match = line.match(/^    - (\S+)$/);
+    if (match && section === "agent-owned") {
+      const path = match[1];
+      if (isAbsolute(path) || path.startsWith("~") || path.split(/[\\/]/).some((part) => part === ".." || part === ".")) {
+        throw new Error(`runtimes.yaml: agent-owned path "${path}" must be relative to the agent home`);
+      }
+      runtime.agentOwned.push(path);
       continue;
     }
 
     match = line.match(/^    ([a-z]+):\s*(\S+)$/);
-    if (match && inTargets) {
+    if (match && section === "targets") {
       const [, kind, value] = match;
       if (!KINDS.includes(kind)) {
         throw new Error(`runtimes.yaml: unknown artifact kind "${kind}"`);
@@ -491,8 +502,21 @@ function sourcesFor(kind, chain, { clean, ownsCore }) {
 
 // The instructions target is the agent home itself, which also holds the agent's own files and links.
 // There ag sync touches only the instruction file names that coding agent gets.
+// An agent-owned entry is never touched, in any target.
 function manages(target, name) {
-  return !target.managed || target.managed.has(name.toLowerCase());
+  return (
+    !target.agentOwned.has(join(target.targetDir, name).toLowerCase()) &&
+    (!target.managed || target.managed.has(name.toLowerCase()))
+  );
+}
+
+// Absolute paths, in lower case, of the entries each coding agent keeps in its own Agent home.
+function agentOwnedPaths(runtimes = loadRuntimes()) {
+  return new Set(
+    Object.values(runtimes).flatMap((runtime) =>
+      runtime.agentOwned.map((path) => join(expandPath(runtime.home), path).toLowerCase()),
+    ),
+  );
 }
 
 const OS_METADATA = new Set([".ds_store", "desktop.ini", "thumbs.db"]);
@@ -1206,8 +1230,10 @@ function syncPlan(profile, { quiet = false } = {}) {
   const { clean } = readProfileConfig(profile);
   const collected = collectLineage(chain, { clean, ownsCore: !hasRemote(UPSTREAM) }, { quiet });
   const plan = { collected, targets: [], derived: new Map(), syncedHomes: [] };
+  const runtimes = loadRuntimes();
+  const agentOwned = agentOwnedPaths(runtimes);
 
-  for (const [agent, runtime] of Object.entries(loadRuntimes())) {
+  for (const [agent, runtime] of Object.entries(runtimes)) {
     const home = expandPath(runtime.home);
     if (!existsSync(home)) {
       if (!quiet) {
@@ -1232,6 +1258,7 @@ function syncPlan(profile, { quiet = false } = {}) {
           targetDir,
           kind,
           managed: isHome ? new Set(instructionNames(agent).map((name) => name.toLowerCase())) : null,
+          agentOwned,
           entries: new Map(),
           keys: new Map(),
         };
@@ -1243,6 +1270,11 @@ function syncPlan(profile, { quiet = false } = {}) {
       const entries = ADAPTERS[kind]({ agent, artifacts: own, collected, plan });
       for (const entry of entries) {
         const key = entry.linkName.toLowerCase();
+        if (agentOwned.has(join(targetDir, entry.linkName).toLowerCase())) {
+          throw new Error(
+            `"${entry.linkName}" in ${display(targetDir)} belongs to ${agent}, so ag sync cannot link "${entry.source}" there. Rename the artifact.`,
+          );
+        }
         if (target.keys.has(key)) {
           throw new Error(`Collision: "${entry.linkName}" comes from both "${target.keys.get(key).source}" and "${entry.source}"`);
         }
@@ -1277,7 +1309,7 @@ function removeSymlinks(target) {
 }
 
 // Real files and folders in the target folders: Blockers share a name with a store artifact.
-// Unmanaged artifacts belong to the agent or the user and are left alone.
+// Unmanaged artifacts belong to the user and are left alone. Agent-owned entries are not listed.
 function findRealEntries(targets) {
   const blockers = [];
   const unmanaged = [];
@@ -1454,10 +1486,11 @@ function pointsIntoStoreSources(linkPath) {
 }
 
 // Symlinks into the store's sources and into sync/.generated/, two levels deep: the entries of each agent home, and
-// the entries of each folder directly in it. Symlinked folders are not followed. Real files keep their meaning as
-// Blockers and Unmanaged artifacts.
+// the entries of each folder directly in it. Symlinked folders are not followed, and agent-owned entries are skipped.
+// Real files keep their meaning as Blockers and Unmanaged artifacts.
 function storeLinksIn(homes) {
   const found = [];
+  const owned = agentOwnedPaths();
   const visit = (dir, depth) => {
     let names;
     try {
@@ -1467,6 +1500,9 @@ function storeLinksIn(homes) {
     }
     for (const name of names) {
       const path = join(dir, name);
+      if (owned.has(path.toLowerCase())) {
+        continue;
+      }
       const stats = lstatSync(path);
       if (stats.isSymbolicLink()) {
         if (pointsIntoStoreSources(path)) {

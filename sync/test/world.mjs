@@ -74,21 +74,31 @@ export function fails(result) {
 const PINNED_OLD_AG = "120d8aaa7203e62ec53104e226bb3a715fa26568";
 
 export const CURRENT_AG = readFileSync(join(REPO, "sync/bin/ag.mjs"), "utf8");
+export const CURRENT_RUNTIMES = readFileSync(join(REPO, "sync/runtimes.yaml"), "utf8");
 
 export function oldAgSource() {
-  const result = spawnSync("git", ["-C", REPO, "show", `${PINNED_OLD_AG}:sync/bin/ag.mjs`], {
+  return pinnedOldFile("sync/bin/ag.mjs");
+}
+
+// The old ag rejects runtimes.yaml keys added after it, so it runs with the runtimes.yaml of its own commit.
+export function oldRuntimesSource() {
+  return pinnedOldFile("sync/runtimes.yaml");
+}
+
+function pinnedOldFile(path) {
+  const result = spawnSync("git", ["-C", REPO, "show", `${PINNED_OLD_AG}:${path}`], {
     env: cleanEnv({}),
     encoding: "utf8",
     maxBuffer: 16 * 1024 * 1024,
   });
-  assert.equal(result.status, 0, `git show of the old ag failed: ${result.stderr}`);
+  assert.equal(result.status, 0, `git show of the old ${path} failed: ${result.stderr}`);
   return result.stdout;
 }
 
 // A throwaway world: a bare origin, a store at $HOME/.agents on main, and empty runtime homes.
 // world.computer() adds another computer with its own home and a clone of the same origin.
-// With agSource, the store's first Core commit holds that ag instead of this repository's.
-export function createWorld({ agSource } = {}) {
+// With agSource and runtimesSource, the store's first Core commit holds those files instead of this repository's.
+export function createWorld({ agSource, runtimesSource } = {}) {
   // Native, so Windows short names in the temp folder (RUNNER~1) become the long names git reports.
   const base = realpathSync.native(mkdtempSync(join(tmpdir(), "ag-test-")));
   const bin = join(base, "bin");
@@ -166,6 +176,9 @@ export function createWorld({ agSource } = {}) {
   }
   if (agSource) {
     writeFileSync(join(store, "sync/bin/ag.mjs"), agSource);
+  }
+  if (runtimesSource) {
+    writeFileSync(join(store, "sync/runtimes.yaml"), runtimesSource);
   }
   chmodSync(join(store, ".githooks/pre-push"), 0o755);
   chmodSync(join(store, ".githooks/pre-commit"), 0o755);
