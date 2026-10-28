@@ -31,7 +31,7 @@ A skill folder is linked as it is, except for who may invoke it. Cursor and Clau
 
 - **Both keys, or neither:** a link in every agent.
 - **Only `disable-model-invocation: true`:** Codex gets a Derived folder. Codex skips a `SKILL.md` that is a link, so its `SKILL.md` keeps the original frontmatter and points at the original, like a command skill. It links every other file of the original and adds a Derived `agents/openai.yaml` with the policy. When the skill has its own `agents/openai.yaml`, the Derived one copies it and sets the policy.
-- **Only the Codex policy:** Cursor and Claude get one shared Derived folder, whose `SKILL.md` is a copy with `disable-model-invocation: true` added. Every other file is linked.
+- **Only the Codex policy:** Cursor and Claude get one shared Derived folder. Its `SKILL.md` keeps the original frontmatter with `disable-model-invocation: true` added, and points at the original. Claude replaces some text in a skill before the model reads it: `$ARGUMENTS`, `$0` and the other argument placeholders, `${CLAUDE_...}` variables, and `` !`command` `` output. A pointer would hide that text, so a skill that uses it gets a full copy instead. Every other file is linked.
 
 Third-party skills in `skills/` are left alone. Codex lists `~/.agents/skills/` as the folder for user skills, so it reads them itself. The Codex mapping sets `reads-store-skills: true`, and `ag sync` links only store and profile skills into `~/.codex/skills/`. A link to a third-party skill there would show it twice.
 
@@ -80,7 +80,7 @@ Known differences:
 
 - Claude reads only the `paths` frontmatter key. It ignores and strips `description`, `alwaysApply`, and `globs`.
 - A Cursor rule that relies on `globs` loads always in Claude. Add a matching `paths` key if a rule needs file-scoped loading in both, or write it as a Claude rule.
-- Relative `@` imports resolve from the canonical file, not from the runtime folder. Rules should name files by absolute `~/.agents/...` paths instead.
+- Relative `@` imports resolve from the file Claude reads: the canonical file for a link, and `sync/.generated/claude/rules/` for a Derived copy of a Cursor rule. Rules should name files by absolute `~/.agents/...` paths instead.
 
 Sources: [Claude Code skills and commands](https://code.claude.com/docs/en/skills), [Claude Code memory and rules](https://code.claude.com/docs/en/memory), and the [Claude Code changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) (`.claude/rules/` since 2.0.64, commands merged into skills in 2.1.3).
 
