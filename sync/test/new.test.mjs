@@ -32,7 +32,7 @@ test("ag new from main writes the skeleton, commits, pushes, and links store art
   );
   assert.equal(
     world.linkTarget(".claude/rules/store-rule.md"),
-    join(world.store, "artifacts/rules-store-me/store-rule.mdc"),
+    join(world.store, "sync/.generated/claude/rules/store-rule.md"),
   );
   assert.equal(world.git(world.edit, "branch", "--show-current"), "main");
 });

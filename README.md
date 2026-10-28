@@ -405,8 +405,6 @@ claude:
     rules: rules
     subagents: agents
     instructions: .
-  link-ext:
-    rules: .md
 codex:
   home: ~/.codex
   reads-store-skills: true
@@ -417,7 +415,7 @@ codex:
     instructions: .
 ```
 
-A target receives links to artifacts, or to their Derived files. A kind without a target gets no links in that coding agent: Codex's rules reach it by path through its Derived `AGENTS.md`, and Cursor's Global instructions through its Derived rule `AGENTS.mdc`. `link-ext: .md` gives each file link of that kind the extension, so Claude can load `.mdc` rules. Codex's commands share `~/.codex/skills/` with its skills, as `cmd-<name>` folders.
+A target receives links to artifacts, or to their Derived files. A kind without a target gets no links in that coding agent: Codex's rules reach it by path through its Derived `AGENTS.md`, and Cursor's Global instructions through its Derived rule `AGENTS.mdc`. Codex's commands share `~/.codex/skills/` with its skills, as `cmd-<name>` folders.
 
 The adapters that write the Derived files live in `sync/bin/ag.mjs`. They pick by each file's source format and by the coding agent's name, so a mapping never names them. A coding agent they do not know gets plain links.
 

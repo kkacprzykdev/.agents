@@ -409,7 +409,7 @@ function checkMigrationLevels(profile) {
 function parseRuntimesYaml(content) {
   const runtimes = {};
   let runtime = null;
-  let section = null;
+  let inTargets = false;
 
   for (const rawLine of lines(content)) {
     const line = stripComment(rawLine);
@@ -419,9 +419,9 @@ function parseRuntimesYaml(content) {
 
     let match = line.match(/^([A-Za-z0-9_-]+):$/);
     if (match) {
-      runtime = { home: null, readsStoreSkills: false, targets: {}, linkExt: {} };
+      runtime = { home: null, readsStoreSkills: false, targets: {} };
       runtimes[match[1]] = runtime;
-      section = null;
+      inTargets = false;
       continue;
     }
     if (!runtime) {
@@ -431,37 +431,29 @@ function parseRuntimesYaml(content) {
     match = line.match(/^  home:\s*(\S+)$/);
     if (match) {
       runtime.home = match[1];
-      section = null;
+      inTargets = false;
       continue;
     }
 
     match = line.match(/^  reads-store-skills:\s*(true|false)$/);
     if (match) {
       runtime.readsStoreSkills = match[1] === "true";
-      section = null;
+      inTargets = false;
       continue;
     }
 
-    match = line.match(/^  (targets|link-ext):$/);
-    if (match) {
-      section = match[1];
+    if (/^  targets:$/.test(line)) {
+      inTargets = true;
       continue;
     }
 
     match = line.match(/^    ([a-z]+):\s*(\S+)$/);
-    if (match && section) {
+    if (match && inTargets) {
       const [, kind, value] = match;
       if (!KINDS.includes(kind)) {
         throw new Error(`runtimes.yaml: unknown artifact kind "${kind}"`);
       }
-      if (section === "targets") {
-        runtime.targets[kind] = value;
-      } else {
-        if (!/^\.[A-Za-z0-9]+$/.test(value)) {
-          throw new Error(`runtimes.yaml: link-ext must look like ".md": ${value}`);
-        }
-        runtime.linkExt[kind] = value;
-      }
+      runtime.targets[kind] = value;
       continue;
     }
 
@@ -587,11 +579,6 @@ function reportSkippedEntries(planSources) {
   }
 }
 
-// With linkExt, a file link gets that extension (x.mdc -> x.md).
-function linkNameFor(name, linkExt) {
-  return linkExt ? name.replace(/(\.[^.]+)?$/, linkExt) : name;
-}
-
 // Every artifact of the Lineage, by kind, in source order. Every Collision is found here, before Sync changes anything.
 function collectLineage(chain, options, { quiet }) {
   const collected = {};
@@ -671,9 +658,9 @@ const SHARED = "shared";
 const CURSOR_INSTRUCTIONS_RULE = "AGENTS.mdc";
 
 // A plain link to the artifact itself.
-function linkEntry(artifact, linkExt) {
+function linkEntry(artifact) {
   return {
-    linkName: artifact.isDirectory ? artifact.name : linkNameFor(artifact.name, linkExt),
+    linkName: artifact.name,
     path: artifact.sourcePath,
     source: artifact.source,
     isDirectory: artifact.isDirectory,
@@ -805,9 +792,9 @@ function codexInstructions(agents, rules) {
 }
 
 // Codex gets one Derived AGENTS.md: the text of the Lineage's AGENTS.md, then every rule by path. CLAUDE.md is Claude's.
-function adaptInstructions({ agent, artifacts, collected, linkExt, plan }) {
+function adaptInstructions({ agent, artifacts, collected, plan }) {
   if (agent !== "codex") {
-    return artifacts.map((artifact) => linkEntry(artifact, linkExt));
+    return artifacts.map(linkEntry);
   }
   const agents = artifacts.find((artifact) => artifact.name === "AGENTS.md");
   const rules = ruleFiles(collected);
@@ -835,11 +822,19 @@ function cursorRuleFromClaude(artifact) {
   return withMarker(`${head.join("\n")}\n${body}`, markdownMarker(artifact.sourcePath));
 }
 
+// Claude skips a rule whose file, after links, does not end in .md, so a Cursor rule reaches it as a Derived .md copy.
 // Cursor reads no global AGENTS.md, so it gets the text as the Derived rule AGENTS.mdc, which always applies.
-function adaptRules({ agent, artifacts, collected, linkExt, plan }) {
+function adaptRules({ agent, artifacts, collected, plan }) {
   const entries = artifacts.map((artifact) => {
+    if (agent === "claude" && !artifact.isDirectory && artifact.name.endsWith(".mdc")) {
+      const name = artifact.name.replace(/\.mdc$/, ".md");
+      const text = readFileSync(artifact.sourcePath, "utf8");
+      return derivedEntry(plan, name, artifact.source, `claude/rules/${name}`, {
+        "": { file: withMarker(text, markdownMarker(artifact.sourcePath)) },
+      });
+    }
     if (agent !== "cursor" || artifact.isDirectory || !artifact.name.endsWith(".md")) {
-      return linkEntry(artifact, linkExt);
+      return linkEntry(artifact);
     }
     const name = artifact.name.replace(/\.md$/, ".mdc");
     return derivedEntry(plan, name, artifact.source, `cursor/rules/${name}`, { "": { file: cursorRuleFromClaude(artifact) } });
@@ -916,10 +911,10 @@ function codexCommandSkill(name, artifact, text) {
   };
 }
 
-function adaptCommands({ agent, artifacts, linkExt, plan }) {
+function adaptCommands({ agent, artifacts, plan }) {
   return artifacts.map((artifact) => {
     if (artifact.isDirectory) {
-      return linkEntry(artifact, linkExt);
+      return linkEntry(artifact);
     }
     const text = readFileSync(artifact.sourcePath, "utf8");
     if (agent === "codex") {
@@ -930,7 +925,7 @@ function adaptCommands({ agent, artifacts, linkExt, plan }) {
     }
     const by = { cursor: { claude: 1 }, claude: { cursor: -1 } }[agent]?.[commandNumbering(text)];
     if (!by) {
-      return linkEntry(artifact, linkExt);
+      return linkEntry(artifact);
     }
     return derivedEntry(plan, artifact.name, artifact.source, `${agent}/commands/${artifact.name}`, {
       "": { file: withMarker(renumber(text, by), markdownMarker(artifact.sourcePath)) },
@@ -1063,17 +1058,17 @@ function markdownSubagent(artifact, text) {
   return withMarker(`${head.join("\n")}\n${instructions}\n`, markdownMarker(artifact.sourcePath));
 }
 
-function adaptSubagents({ agent, artifacts, linkExt, plan }) {
+function adaptSubagents({ agent, artifacts, plan }) {
   return artifacts.map((artifact) => {
     const format = artifact.isDirectory ? null : FORMATS.subagents.find((ext) => artifact.name.endsWith(ext));
     if (!format || !["cursor", "claude", "codex"].includes(agent)) {
-      return linkEntry(artifact, linkExt);
+      return linkEntry(artifact);
     }
     const text = readFileSync(artifact.sourcePath, "utf8");
     const name = stem(artifact.name);
     if (format === ".toml") {
       return agent === "codex"
-        ? linkEntry(artifact, linkExt)
+        ? linkEntry(artifact)
         : derivedEntry(plan, `${name}.md`, artifact.source, `${SHARED}/agents/${name}.md`, { "": { file: markdownSubagent(artifact, text) } });
     }
     if (agent === "codex") {
@@ -1082,7 +1077,7 @@ function adaptSubagents({ agent, artifacts, linkExt, plan }) {
     const { frontmatter } = splitFrontmatter(text);
     const key = (keyName) => frontmatterKey(frontmatter, keyName);
     if (agent === "cursor" || key("readonly").value !== "true" || key("tools").line || key("disallowedTools").line) {
-      return linkEntry(artifact, linkExt);
+      return linkEntry(artifact);
     }
     return derivedEntry(plan, artifact.name, artifact.source, `claude/agents/${artifact.name}`, {
       "": { file: withMarker(withFrontmatterLine(text, READ_ONLY_TOOLS), markdownMarker(artifact.sourcePath)) },
@@ -1155,12 +1150,12 @@ function codexSkillPointer(artifact, skill) {
 
 // Each agent gets the "who may invoke it" setting it reads: Cursor and Claude a SKILL.md key, Codex a policy.
 // Third-party skills are left alone.
-function adaptSkills({ agent, artifacts, linkExt, plan }) {
+function adaptSkills({ agent, artifacts, plan }) {
   return artifacts.map((artifact) => {
     const skillFile = join(artifact.sourcePath, "SKILL.md");
     const yamlFile = join(artifact.sourcePath, "agents", "openai.yaml");
     if (artifact.source === THIRD_PARTY_SKILLS || !artifact.isDirectory || !existsSync(skillFile)) {
-      return linkEntry(artifact, linkExt);
+      return linkEntry(artifact);
     }
     const skill = readFileSync(skillFile, "utf8");
     const yaml = existsSync(yamlFile) ? readFileSync(yamlFile, "utf8") : null;
@@ -1185,7 +1180,7 @@ function adaptSkills({ agent, artifacts, linkExt, plan }) {
         isDirectory: true,
       });
     }
-    return linkEntry(artifact, linkExt);
+    return linkEntry(artifact);
   });
 }
 
@@ -1245,7 +1240,7 @@ function syncPlan(profile, { quiet = false } = {}) {
       }
       const target = byDir.get(targetDir);
       const own = artifacts.filter((artifact) => !(runtime.readsStoreSkills && artifact.source === THIRD_PARTY_SKILLS));
-      const entries = ADAPTERS[kind]({ agent, artifacts: own, collected, linkExt: runtime.linkExt[kind], plan });
+      const entries = ADAPTERS[kind]({ agent, artifacts: own, collected, plan });
       for (const entry of entries) {
         const key = entry.linkName.toLowerCase();
         if (target.keys.has(key)) {
