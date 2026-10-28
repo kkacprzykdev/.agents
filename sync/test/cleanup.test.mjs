@@ -38,7 +38,7 @@ test("the first sync remembers the agent homes it synced, but not a listed home 
 test("ag sync removes the links of a Runtime target that Core removed", () => {
   createDefault(world);
   assert.ok(isLink(".claude/rules/default-rule.md"));
-  editRuntimes("    rules: rules\n    instructions: .\n", "    instructions: .\n");
+  editRuntimes("    rules: rules\n    subagents: agents\n    instructions: .\n", "    subagents: agents\n    instructions: .\n");
 
   const output = ok(world.ag(["sync"]));
 
@@ -85,7 +85,7 @@ test("ag sync --dry-run reports the old links it would remove, removes nothing, 
   assert.equal(readFileSync(recordFile(), "utf8"), "");
 });
 
-test("the scan goes two levels deep, skips symlinked folders, and removes only links into the store's sources", () => {
+test("the scan goes two levels deep, skips symlinked folders, and removes only links into the store's sources and Derived files", () => {
   createDefault(world);
   const claude = join(world.home, ".claude");
   const rule = join(world.store, DEFAULT_RULE);
@@ -109,7 +109,7 @@ test("the scan goes two levels deep, skips symlinked folders, and removes only l
   assert.ok(isLink(".claude/linked-folder"));
   assert.ok(lstatSync(join(outside, "inside-linked-folder.md")).isSymbolicLink());
   assert.ok(isLink(".claude/store-readme.md"));
-  assert.ok(isLink(".claude/generated.md"));
+  assert.equal(isLink(".claude/generated.md"), false);
   assert.ok(isLink(".claude/unrelated"));
 });
 
@@ -136,7 +136,7 @@ test("after ag use switches to a branch whose Core does not map Codex, Codex kee
   world.commitAll(world.store, "Map no Codex, as an older Core did");
   ok(world.ag(["push"]));
   ok(world.ag(["use", "default"]));
-  assert.equal(world.linkTarget(".codex/AGENTS.md"), join(world.store, "profiles/default/artifacts/instructions-profile-me/AGENTS.md"));
+  assert.equal(world.linkTarget(".codex/AGENTS.md"), join(world.store, "sync/.generated/codex/AGENTS.md"));
 
   ok(world.ag(["use", "older"]));
 

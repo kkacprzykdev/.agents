@@ -13,7 +13,7 @@ beforeEach(() => {
 });
 afterEach(() => world.cleanup());
 
-test("ag sync links AGENTS.md and CLAUDE.md into Claude and Codex, and leaves the rest of each agent home alone", () => {
+test("ag sync links AGENTS.md and CLAUDE.md into Claude, gives Codex only AGENTS.md, and leaves the rest of each agent home alone", () => {
   createDefault(world);
   world.write(`${INSTRUCTIONS}/AGENTS.md`, "agents\n");
   world.write(`${INSTRUCTIONS}/CLAUDE.md`, "@~/.claude/AGENTS.md\n");
@@ -22,11 +22,11 @@ test("ag sync links AGENTS.md and CLAUDE.md into Claude and Codex, and leaves th
 
   const output = ok(world.ag(["sync"]));
 
-  for (const home of [".claude", ".codex"]) {
-    for (const file of ["AGENTS.md", "CLAUDE.md"]) {
-      assert.equal(world.linkTarget(`${home}/${file}`), join(world.store, INSTRUCTIONS, file));
-    }
+  for (const file of ["AGENTS.md", "CLAUDE.md"]) {
+    assert.equal(world.linkTarget(`.claude/${file}`), join(world.store, INSTRUCTIONS, file));
   }
+  assert.equal(world.linkTarget(".codex/AGENTS.md"), join(world.store, "sync/.generated/codex/AGENTS.md"));
+  assert.equal(world.exists(".codex/CLAUDE.md", world.home), false);
   assert.equal(world.exists(".cursor/AGENTS.md", world.home), false);
   assert.equal(world.exists(".cursor/CLAUDE.md", world.home), false);
   assert.equal(world.read(".claude/settings.json", world.home), "{}\n");
@@ -40,11 +40,12 @@ test("ag sync removes an instruction file link when the profile no longer has th
   world.write(`${INSTRUCTIONS}/AGENTS.md`, "agents\n");
   ok(world.ag(["sync"]));
 
+  assert.match(world.read("sync/.generated/codex/AGENTS.md"), /^agents$/m);
   unlinkSync(join(world.store, INSTRUCTIONS, "AGENTS.md"));
   ok(world.ag(["sync"]));
 
-  assert.equal(world.exists(".codex/AGENTS.md", world.home), false);
   assert.equal(world.exists(".claude/AGENTS.md", world.home), false);
+  assert.doesNotMatch(world.read("sync/.generated/codex/AGENTS.md"), /^agents$/m);
 });
 
 test("ag sync stops when a child and a parent both have AGENTS.md", () => {

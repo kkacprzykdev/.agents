@@ -46,14 +46,14 @@ test("ag sync writes the Launcher, which runs ag with only its own folder and no
   }
 });
 
-test("ag sync rewrites a Launcher an older ag wrote, and keeps its Codex parity wrapper target", () => {
+test("ag sync rewrites a Launcher an older ag wrote, and points one that runs the Codex parity wrapper at the Sync tool", () => {
   createDefault(world);
   putLauncherFile("ag", '#!/bin/sh\n# ag launcher\nnode "/old/store/sync/bin/ag-codex-parity.mjs" "$@"\n');
 
   const output = ok(world.ag(["sync"]));
 
-  assert.ok(launcherFile("ag").includes(`exec node "${forShell(storeAg("ag-codex-parity.mjs"))}" "$@"`), launcherFile("ag"));
-  assert.match(output, /updated: Launcher ~\/\.local\/bin\/ag, which runs sync\/bin\/ag-codex-parity\.mjs/);
+  assert.ok(launcherFile("ag").includes(`exec node "${forShell(storeAg())}" "$@"`), launcherFile("ag"));
+  assert.match(output, /updated: Launcher ~\/\.local\/bin\/ag, which runs sync\/bin\/ag\.mjs/);
 });
 
 test("ag sync keeps a file at the Launcher's path that is not a Launcher, and names it", () => {
@@ -66,18 +66,18 @@ test("ag sync keeps a file at the Launcher's path that is not a Launcher, and na
   assert.match(output, /warning: ~\/\.local\/bin\/ag is not an ag Launcher, so ag left it\./);
 });
 
-test("ag sync replaces an old link into the store's sync/bin/ with a Launcher that keeps its target", () => {
+test("ag sync replaces an old link into the store's sync/bin/ with a Launcher", () => {
   createDefault(world);
-  const wrapper = world.read("sync/bin/ag-codex-parity.mjs");
+  const agSource = world.read("sync/bin/ag.mjs");
   rmSync(join(launcherDir(), "ag"));
-  symlinkSync(storeAg("ag-codex-parity.mjs"), join(launcherDir(), "ag"), "file");
+  symlinkSync(storeAg(), join(launcherDir(), "ag"), "file");
 
   const output = ok(world.ag(["sync"]));
 
   assert.equal(lstatSync(join(launcherDir(), "ag")).isSymbolicLink(), false);
-  assert.ok(launcherFile("ag").includes(`exec node "${forShell(storeAg("ag-codex-parity.mjs"))}" "$@"`), launcherFile("ag"));
-  assert.equal(world.read("sync/bin/ag-codex-parity.mjs"), wrapper);
-  assert.match(output, /replaced: the link ~\/\.local\/bin\/ag with a Launcher, which runs sync\/bin\/ag-codex-parity\.mjs/);
+  assert.ok(launcherFile("ag").includes(`exec node "${forShell(storeAg())}" "$@"`), launcherFile("ag"));
+  assert.equal(world.read("sync/bin/ag.mjs"), agSource);
+  assert.match(output, /replaced: the link ~\/\.local\/bin\/ag with a Launcher, which runs sync\/bin\/ag\.mjs/);
 });
 
 test("ag sync --dry-run reports the Launcher it would write and writes nothing", () => {
