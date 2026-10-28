@@ -2,7 +2,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createDefault, createWorld, fails, ok, oldAgSource } from "./world.mjs";
+import { createDefault, createWorld, fails, ok, oldAgSource, oldRuntimesSource } from "./world.mjs";
 
 let world;
 beforeEach(() => {
@@ -114,6 +114,7 @@ test("an ag from before migrations fails on migration-level after switching, and
   ok(world.ag(["update"]));
   ok(world.ag(["new", "legacy"]));
   world.write("sync/bin/ag.mjs", oldAgSource());
+  world.write("sync/runtimes.yaml", oldRuntimesSource());
   world.write("profiles/legacy/profile.yaml", "parent: main\n");
   rmSync(join(world.store, "sync/migrations"), { recursive: true, force: true });
   world.commitAll(world.store, "Go back to the ag from before migrations");

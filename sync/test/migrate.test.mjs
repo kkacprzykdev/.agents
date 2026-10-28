@@ -2,7 +2,16 @@ import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync } from "node:fs";
 import { join } from "node:path";
-import { CURRENT_AG, createDefault, createSetupSkill, createWorld, ok, oldAgSource } from "./world.mjs";
+import {
+  CURRENT_AG,
+  CURRENT_RUNTIMES,
+  createDefault,
+  createSetupSkill,
+  createWorld,
+  ok,
+  oldAgSource,
+  oldRuntimesSource,
+} from "./world.mjs";
 import { writes, writesOwnPath } from "./migrations.mjs";
 
 let world;
@@ -75,10 +84,11 @@ test("each Lineage branch runs only its missing migrations on its own folder, af
 
 test("ag update runs the migrations with the ag that was just merged, not the older one that started it", () => {
   world.cleanup();
-  world = createWorld({ agSource: oldAgSource() });
+  world = createWorld({ agSource: oldAgSource(), runtimesSource: oldRuntimesSource() });
   createDefault(world);
   ok(world.ag(["edit", "main"]));
   world.write("sync/bin/ag.mjs", CURRENT_AG, world.edit);
+  world.write("sync/runtimes.yaml", CURRENT_RUNTIMES, world.edit);
   world.write("sync/migrations/0001-add-notes.mjs", writes("notes.md", "notes\n"), world.edit);
   world.commitAll(world.edit, "Ship Profile migrations");
   world.git(world.edit, "push", "-q", "origin", "main");

@@ -104,6 +104,8 @@ A profile keeps its `AGENTS.md` and `CLAUDE.md` in `artifacts/instructions-profi
   - Cursor reads no global `AGENTS.md`. It gets the Derived rule `~/.cursor/rules/AGENTS.mdc`, with `alwaysApply: true` and a copy of the text. A copy, because Cursor reads a file named in a rule only when it thinks it needs it. A profile rule named `AGENTS` is a Collision.
 - **`CLAUDE.md`** is Claude-only. A Root profile starts with an empty `AGENTS.md` and a `CLAUDE.md` that holds `@~/.claude/AGENTS.md`. The import uses the link in `~/.claude/`, because a relative import resolves next to the real `CLAUDE.md`, and the two files can sit in different profiles of a Lineage. Put lines for Claude only below the import. `ag sync` links `CLAUDE.md` only into Claude, and copies nothing from it into another agent. Claude reads `AGENTS.md` itself only in the working directory and above, and by default only when there is no `CLAUDE.md`, so the import stays the reliable path.
 
+Claude keeps the skills of the user's account in `~/.claude/skills/synced/` and updates them itself. The Claude mapping lists that folder as `agent-owned`, so Sync never removes it, lists it, or links over it.
+
 In the Agent home itself, clearing the target touches only the instruction file names that agent gets. Sync never removes or lists a real file there, such as `~/.claude/settings.json`. Its scan for old links removes only symlinks that point into the store's sources or into `sync/.generated/`, and that the current sync does not create.
 
 Sources: [Codex skills](https://learn.chatgpt.com/docs/build-skills) and [Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
