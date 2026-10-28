@@ -2,75 +2,109 @@
 
 ## Current state
 
-The store is runtime-neutral by design, but each coding agent receives a different set of artifact kinds.
+Every artifact kind reaches Cursor, Claude, and Codex. A profile keeps each artifact in the native format of the coding agent it came from. `ag sync` links the file wherever an agent reads it as it is, and links a Derived file in `sync/.generated/` where the agent needs other content (ADR 0033). A Derived file names its source. Edit that source, then run `ag sync`. `ag status` lists the Derived files that are out of date.
 
-**Cursor** receives skills, commands, rules, and subagents. `ag sync` links them into `~/.cursor/skills/`, `~/.cursor/commands/`, `~/.cursor/rules/`, and `~/.cursor/agents/`.
+| Kind | Cursor | Claude | Codex |
+|---|---|---|---|
+| Skills | `~/.cursor/skills/` | `~/.claude/skills/` | `~/.codex/skills/`, and third-party skills from `~/.agents/skills/` |
+| Commands | `~/.cursor/commands/` | `~/.claude/commands/` | `~/.codex/skills/cmd-<name>/`, invoked as `$<name>` |
+| Rules | `~/.cursor/rules/` | `~/.claude/rules/`, as `.md` | by path, in `~/.codex/AGENTS.md` |
+| Subagents | `~/.cursor/agents/` | `~/.claude/agents/` | `~/.codex/agents/`, as `.toml` |
+| `AGENTS.md` | `~/.cursor/rules/AGENTS.mdc` | `~/.claude/AGENTS.md` | copied into `~/.codex/AGENTS.md` |
+| `CLAUDE.md` | none | `~/.claude/CLAUDE.md` | none |
 
-**Claude** receives skills, commands, rules, `CLAUDE.md`, and `AGENTS.md`. `ag sync` links skills into `~/.claude/skills/`, commands into `~/.claude/commands/`, rules into `~/.claude/rules/`, and the two instruction files into `~/.claude/` itself. Subagents are not linked. This was verified against Claude Code 2.1.193.
+Adding a runtime mapping to `sync/runtimes.yaml` only declares where links go. It does not prove that the coding agent understands every artifact format or provides equivalent behavior.
 
-**Codex** receives store and profile skills, `AGENTS.md`, and `CLAUDE.md`. `ag sync` links the skills into `~/.codex/skills/` and the two instruction files into `~/.codex/` itself. Codex reads third-party skills from `~/.agents/skills/` on its own. On a machine that opts in, the Codex parity script also gives it commands and rules (see [Codex](#codex)).
+### Verified versions
 
-Adding a runtime mapping to `sync/runtimes.yaml` only declares symlinks. It does not prove that the coding agent understands every artifact format or provides equivalent behavior.
+The adaptations below were checked in throwaway projects, with each agent's project-level folders, at these versions:
+
+- Claude Code 2.1.310: a read-only subagent copy with `disallowedTools`.
+- Cursor CLI 2026.10.22-27dcf5f: a Derived `.mdc` rule from a Claude rule, with `alwaysApply: true` and with `globs`, and a subagent listed once when it is in both `.cursor/agents/` and `.claude/agents/`.
+- Codex CLI 0.164.0: the command skill's note for both numberings, and a Derived TOML subagent. Codex ran the subagent with its `developer_instructions`, but in the parent's sandbox: its `sandbox_mode = "read-only"` did not stop a write. With the sentence below at the start of its instructions, the same subagent refused the write.
 
 ## Portability notes
 
+### Skills
+
+A skill folder is linked as it is, except for who may invoke it. Cursor and Claude read `disable-model-invocation: true` in `SKILL.md`. Codex hides a skill from the model only through `policy.allow_implicit_invocation: false` in the skill's `agents/openai.yaml`, not through the `SKILL.md` key.
+
+- **Both keys, or neither:** a link in every agent.
+- **Only `disable-model-invocation: true`:** Codex gets a Derived folder. It links every file of the original and adds a Derived `agents/openai.yaml` with the policy. When the skill has its own `agents/openai.yaml`, the Derived one copies it and sets the policy.
+- **Only the Codex policy:** Cursor and Claude get one shared Derived folder, whose `SKILL.md` is a copy with `disable-model-invocation: true` added. Every other file is linked.
+
+Third-party skills in `skills/` are left alone. Codex lists `~/.agents/skills/` as the folder for user skills, so it reads them itself. The Codex mapping sets `reads-store-skills: true`, and `ag sync` links only store and profile skills into `~/.codex/skills/`. A link to a third-party skill there would show it twice.
+
 ### Commands
 
-Command files, in a profile's `commands-profile-me/` and in the store's `commands-store-me/` and `commands-core-me/`, use the Cursor command format. Claude Code still loads `~/.claude/commands/*.md` and follows symlinks, so they are linked as-is. Claude has merged commands into skills and calls commands the older format. A skill with the same name wins over a command.
+A command file is a Markdown file, in a profile's `commands-profile-me/` and in the store's `commands-store-me/` and `commands-core-me/`. Cursor and Claude get it as a command, and Claude Code still loads `~/.claude/commands/*.md`. Claude has merged commands into skills. A skill with the same name wins over a command.
+
+Codex has no commands. Its custom prompts are deprecated in its docs, so `ag sync` does not use them. Each command becomes the Derived skill folder `~/.codex/skills/cmd-<name>/`:
+
+- Its `SKILL.md` has `name: <name>`, so the user invokes it as `$<name>`. Codex takes the name from `SKILL.md`, not from the folder.
+- It points at the command file, which the agent reads itself, so the text keeps one source.
+- Its `agents/openai.yaml` sets `allow_implicit_invocation: false`, so only the user invokes it.
+- A command and a skill with the same name both show in Codex.
 
 Known differences:
 
-- Claude reads the same frontmatter keys as skills, except `name` and `paths`. Without a `description`, it uses the first non-empty line of the body.
+- Claude reads the same frontmatter keys as skills, except `name` and `paths`. Without a `description`, it uses the first non-empty line of the body. So does the Codex command skill.
 - Commands that name a Cursor tool, such as `AskQuestion`, should also allow "an equivalent structured prompt". Claude's tool is `AskUserQuestion`.
 - A command that reads agent transcripts must find them for each runtime, because every runtime stores them in its own layout.
 
-Longer term, commands could become user-invoked skills (`disable-model-invocation: true`), so one format serves every runtime.
+### Arguments
+
+`$ARGUMENTS` is the text after the command name in all three agents. Positional placeholders differ: in Cursor `$1` is the first word, and in Claude `$0` is the first word and `$ARGUMENTS[N]` is the same as `$N`. Claude and Cursor replace placeholders before the model reads the command, so `ag sync` changes the numbering in a Derived copy. It reads the numbering from each file:
+
+- **No `$<n>` or `$ARGUMENTS[N]`:** plain links in Cursor and Claude.
+- **`$1`, `$2`, … and no `$0` or `$ARGUMENTS[N]`:** Cursor numbering. Claude gets a copy with every number lowered by one (`$1` → `$0`).
+- **Any `$0` or `$ARGUMENTS[N]`:** Claude numbering. Cursor gets a copy with every number raised by one (`$0` → `$1`, `$ARGUMENTS[N]` → `$<N+1>`).
+- **Codex** substitutes no placeholder, so the model reads them itself. The command skill says that the text after `$<name>` is `$ARGUMENTS`, and gives the file's numbering: "`$1` is the first word" or "`$0` is the first word".
+
+Two pieces of advice for command authors:
+
+- Where you can, name the input in prose, such as "the argument the user gave", rather than with a placeholder.
+- Write `$0` when you mean Claude's numbering. A file with only `$1` reads as Cursor numbering.
 
 ### Rules
 
-Rule files, in a profile's `rules-profile-me/` and in the store's `rules-store-me/` and `rules-core-me/`, use the Cursor rule format (`.mdc`). Claude Code loads user rules from `~/.claude/rules/`, recursively, and follows symlinks. It only loads files whose name ends in `.md`, so the Claude mapping uses `link-ext: .md`. Each link is named `x.md` and points at `x.mdc`.
+Rule files live in a profile's `rules-profile-me/` and in the store's `rules-store-me/` and `rules-core-me/`, in either format:
+
+- **A Cursor `.mdc` rule:** a link in Cursor. Claude loads only files whose name ends in `.md`, so the Claude mapping uses `link-ext: .md`: the link is named `x.md` and points at `x.mdc`.
+- **A Claude `.md` rule:** a link in Claude. Cursor ignores `.md` rules, so it gets a Derived `x.mdc` with the body copied. A rule with `paths` gets them as `globs` with `alwaysApply: false`. A rule without `paths` gets `alwaysApply: true`, because it loads on every run in Claude.
+- **Codex** has no rules. Its Derived `~/.codex/AGENTS.md` lists every rule file by path, and tells the agent to read each one before its first reply. Each rule's `description`, `globs`, and `paths` arrive as written, and the agent judges from them whether the rule applies. Codex has no scope for global text, so every rule loads on every run there.
+
+The same name in both formats in one Lineage is a Collision.
 
 Known differences:
 
 - Claude reads only the `paths` frontmatter key. It ignores and strips `description`, `alwaysApply`, and `globs`.
-- A rule without `paths` loads on every run. A rule with `alwaysApply: true` and no `globs` behaves the same in both runtimes.
-- A rule that relies on Cursor `globs` would load always in Claude. Add a matching `paths` key if a rule ever needs file-scoped loading in both runtimes.
+- A Cursor rule that relies on `globs` loads always in Claude. Add a matching `paths` key if a rule needs file-scoped loading in both, or write it as a Claude rule.
 - Relative `@` imports resolve from the canonical file, not from the runtime folder. Rules should name files by absolute `~/.agents/...` paths instead.
 
 Sources: [Claude Code skills and commands](https://code.claude.com/docs/en/skills), [Claude Code memory and rules](https://code.claude.com/docs/en/memory), and the [Claude Code changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) (`.claude/rules/` since 2.0.64, commands merged into skills in 2.1.3).
 
 ### Subagents
 
-Subagents are linked into Cursor only. Their portability to other coding agents has not been verified.
+A subagent is a Markdown file, the format of Cursor and Claude, or a Codex TOML file:
+
+- **A Markdown subagent:** links in `~/.cursor/agents/` and `~/.claude/agents/`. Codex gets a Derived TOML with `name`, `description`, and the body copied into `developer_instructions`. `readonly: true` becomes `sandbox_mode = "read-only"`, and `model` is dropped, because a Cursor or Claude model name would break Codex. Codex 0.164.0 does not apply that `sandbox_mode`: a custom agent runs in the parent's sandbox. So the `developer_instructions` of a read-only subagent start with a sentence that tells it to change no file. That is an instruction, not a sandbox: a subagent in a session that may write can still write.
+- **A read-only Markdown subagent:** Claude reads no `readonly` key. When the subagent sets `readonly: true` and neither `tools` nor `disallowedTools`, Claude gets a Derived copy that adds `disallowedTools: Write, Edit, NotebookEdit`. Claude's Bash tool stays available to it.
+- **A Codex TOML subagent:** a link in `~/.codex/agents/`. Cursor and Claude get one shared Derived Markdown file built from `name`, `description`, and `developer_instructions`. `sandbox_mode = "read-only"` becomes both `readonly: true` and `disallowedTools: Write, Edit, NotebookEdit`, and each agent ignores the other's key.
+
+Cursor reads `~/.claude/agents/` too, and lists a subagent that is in both folders once. One subagent name as `.md` and `.toml` in one Lineage is a Collision.
 
 ### Global instructions files
 
-A profile keeps its `AGENTS.md` and `CLAUDE.md` in `artifacts/instructions-profile-me/`. That folder holds only these two files. `ag sync` links both files into the Agent home of Claude and of Codex. In the Agent home itself, clearing the target touches only these two names. Sync never removes or lists a real file there, such as `~/.claude/settings.json`. Its scan for old links removes only symlinks that point into the store's sources and that the current sync does not create.
+A profile keeps its `AGENTS.md` and `CLAUDE.md` in `artifacts/instructions-profile-me/`. That folder holds only these two files, and only one profile in a Lineage can have each one. A child profile that needs more global text uses a rule with `alwaysApply: true`, which reaches every agent.
 
-Claude reads `~/.claude/CLAUDE.md`, and Codex reads `~/.codex/AGENTS.md`. A Root profile starts with an empty `AGENTS.md` and a `CLAUDE.md` that holds `@~/.claude/AGENTS.md`, so both get one text. The import uses the link in `~/.claude/`, because a relative import resolves next to the real `CLAUDE.md`, and the two files can sit in different profiles of a Lineage. That is why both files go into both homes.
+- **`AGENTS.md`** holds the instructions for every coding agent.
+  - Claude gets a link in `~/.claude/`.
+  - Codex reads `~/.codex/AGENTS.md`, a Derived file: the text of `AGENTS.md`, then the path of every rule. `ag sync` makes no `AGENTS.override.md`, which Codex would read in place of `AGENTS.md`, so that file stays the user's. Codex stops reading instruction files at 32 KiB in all.
+  - Cursor reads no global `AGENTS.md`. It gets the Derived rule `~/.cursor/rules/AGENTS.mdc`, with `alwaysApply: true` and a copy of the text. A copy, because Cursor reads a file named in a rule only when it thinks it needs it. A profile rule named `AGENTS` is a Collision.
+- **`CLAUDE.md`** is Claude-only. A Root profile starts with an empty `AGENTS.md` and a `CLAUDE.md` that holds `@~/.claude/AGENTS.md`. The import uses the link in `~/.claude/`, because a relative import resolves next to the real `CLAUDE.md`, and the two files can sit in different profiles of a Lineage. Put lines for Claude only below the import. `ag sync` links `CLAUDE.md` only into Claude, and copies nothing from it into another agent. Claude reads `AGENTS.md` itself only in the working directory and above, and by default only when there is no `CLAUDE.md`, so the import stays the reliable path.
 
-Cursor reads neither file globally, so they are not linked into `~/.cursor/`. A global instruction for Cursor is a rule with `alwaysApply: true`.
-
-Only one profile in a Lineage can have each file. A second one is a Collision.
-
-### Codex
-
-Codex lists `~/.agents/skills/` as the folder for user skills. It also reads `~/.codex/skills/`. The store's third-party `skills/` folder is `~/.agents/skills/`, so Codex already sees those skills. The Codex mapping sets `reads-store-skills: true`, and `ag sync` links only store and profile skills into `~/.codex/skills/`. A link to a third-party skill there would show it twice.
-
-Codex reads global instructions from `~/.codex/AGENTS.md`.
-
-Commands, rules, and subagents are not linked into Codex:
-
-- Codex CLI 0.118.0 removed custom prompts, its form of commands ([openai/codex#16115](https://github.com/openai/codex/pull/16115)).
-- `~/.codex/rules/` holds command-approval rules, not instructions.
-- Codex subagents are TOML files, not the Markdown format of the store's subagents.
-
-Until sync parity ([#2](https://github.com/kkacprzykdev/.agents/issues/2)), the opt-in Codex parity script gives Codex the commands and rules (ADR 0029):
-
-- `sync/bin/codex-parity-sync.mjs` reads them from the links in `~/.claude/commands/` and `~/.claude/rules/`, generates Codex files into `sync/.generated/codex/`, and links those into `~/.codex/`.
-- `~/.codex/AGENTS.override.md`, which Codex reads in place of `~/.codex/AGENTS.md`, lists `~/.codex/AGENTS.md` and every rule file by path. The agent reads each file itself.
-- Each command is a skill in `~/.codex/skills/cmd-<name>/`, invoked as `$<name>`. Codex takes the skill name from `name:` in `SKILL.md`, not from the folder. `allow_implicit_invocation: false` in `agents/openai.yaml` lets only the user invoke it. Verified with Codex CLI 0.163.0.
-- To opt in, change the Launcher's target from `sync/bin/ag.mjs` to `sync/bin/ag-codex-parity.mjs`: in `~/.local/bin/ag`, and on Windows in `ag.cmd` next to it too. `ag` keeps that target when it rewrites the Launcher. The wrapper runs the script after `ag sync`, `ag update`, `ag use`, `ag new`, and `ag skills add`. The script owns its links: `ag sync` clears the command skills with the rest of `~/.codex/skills/`, and the wrapper makes them again, but the scan for old links never removes a link into `sync/.generated/`. To opt out, run `codex-parity-sync.mjs --remove`, which deletes everything the script made, then change the Launcher's target back to `sync/bin/ag.mjs` in each file.
+In the Agent home itself, clearing the target touches only the instruction file names that agent gets. Sync never removes or lists a real file there, such as `~/.claude/settings.json`. Its scan for old links removes only symlinks that point into the store's sources or into `sync/.generated/`, and that the current sync does not create.
 
 Sources: [Codex skills](https://learn.chatgpt.com/docs/build-skills) and [Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
 
@@ -78,8 +112,6 @@ A profile may record its own notes, such as how its artifacts behave in each cod
 
 ## Desired future state
 
-- Cursor keeps its current skill, command, rule, and subagent behavior.
-- Claude and Codex stay practical for daily work with the same recipes as Cursor.
 - Other coding agents such as T3 Code can use the same canonical recipes through verified mappings or adapters.
 - Runtime-specific syntax stays at the edge. Shared behavior has one source of truth.
 

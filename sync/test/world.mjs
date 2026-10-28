@@ -21,8 +21,6 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORE_FILES = [
   "sync/bin/ag.mjs",
   "sync/migrations",
-  "sync/bin/codex-parity-sync.mjs",
-  "sync/bin/ag-codex-parity.mjs",
   "sync/runtimes.yaml",
   ".githooks/pre-push",
   ".githooks/pre-commit",
@@ -176,7 +174,7 @@ export function createWorld({ agSource } = {}) {
     writeFile(store, `artifacts/${kind}-core-me/.gitkeep`, "");
   }
   writeFile(store, "artifacts/rules-store-me/store-rule.mdc", "store rule\n");
-  writeFile(store, ".gitignore", ".DS_Store\n");
+  writeFile(store, ".gitignore", ".DS_Store\n/sync/.generated/\n");
   git(store, "add", "-A");
   git(store, "commit", "-q", "-m", "Core");
   git(store, "remote", "add", "origin", origin);

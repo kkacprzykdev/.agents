@@ -96,7 +96,7 @@ What the tools do:
 - **rulesync** writes Codex commands to `~/.codex/prompts/` ([`codexcli-command.ts`](https://github.com/dyoshikawa/rulesync/blob/v36.0.2/src/features/commands/codexcli-command.ts)). Codex does not read them.
 - **skillshare** does not turn commands into skills. Its `gemini-commands` extension shows a command converted to another format at sync time ([`extensions/`](https://github.com/runkids/skillshare/tree/v0.26.2/extensions)).
 
-Compared with issue #2: the issue proposes linking each command into Codex as a skill, and a mechanism that adds the missing invocation configuration to the original command. Cursor and Claude both move commands to user-invoked skills, which matches the long-term idea in `docs/runtime-support.md`. Then a command stored as a skill with `disable-model-invocation: true` would need only a generated `agents/openai.yaml` for Codex. Weigh both against the open question in the issue about how a command file becomes a skill folder.
+Compared with issue #2: the issue proposes linking each command into Codex as a skill, and a mechanism that adds the missing invocation configuration to the original command. Cursor and Claude both move commands to user-invoked skills. Then a command stored as a skill with `disable-model-invocation: true` would need only a generated `agents/openai.yaml` for Codex. ADR 0033 chose neither: Sync keeps commands as commands and derives a `cmd-<name>` skill for Codex, because a Profile migration would rewrite user files.
 
 ### `$ARGUMENTS`
 

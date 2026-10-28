@@ -1,6 +1,7 @@
 # Runtime mappings for ag sync. Each runtime has an agent home and one target folder per artifact kind.
-# A kind without a target is not linked into that runtime. link-ext renames file links for one kind.
-# The target "." is the agent home itself. There ag sync manages only AGENTS.md and CLAUDE.md.
+# A target receives links to artifacts or to their Derived files. The adapters in sync/bin/ag.mjs decide which.
+# A kind without a target gets no links in that runtime. link-ext renames file links for one kind.
+# The target "." is the agent home itself. There ag sync manages only the instruction files that runtime gets.
 cursor:
   home: ~/.cursor
   targets:
@@ -14,6 +15,7 @@ claude:
     skills: skills
     commands: commands
     rules: rules
+    subagents: agents
     instructions: .
   link-ext:
     rules: .md
@@ -21,6 +23,9 @@ codex:
   home: ~/.codex
   # Codex reads third-party skills from ~/.agents/skills itself. A link in ~/.codex/skills would show each one twice.
   reads-store-skills: true
+  # Rules have no target: they reach Codex by path through its Derived AGENTS.md. Commands become cmd-<name> skills.
   targets:
     skills: skills
+    commands: skills
+    subagents: agents
     instructions: .

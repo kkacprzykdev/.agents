@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { rmSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createDefault, createSetupSkill, createWorld, fails, ok } from "./world.mjs";
 
@@ -162,4 +162,28 @@ test("ag update and ag edit recover when the Edit worktree folder was deleted by
   ok(world.ag(["edit", "main"]));
 
   assert.equal(world.git(world.edit, "branch", "--show-current"), "main");
+});
+
+test("ag update takes over a computer that opted in to the Codex parity script", () => {
+  mkdirSync(join(world.home, ".codex"));
+  createDefault(world);
+  // What the stopgap left: its generated files, its links in ~/.codex, and a Launcher that runs its wrapper.
+  const generated = join(world.store, "sync/.generated/codex");
+  world.write("sync/.generated/codex/skills/cmd-gone/SKILL.md", "old\n");
+  world.write("sync/.generated/codex/AGENTS.override.md", "old\n");
+  symlinkSync(join(generated, "skills/cmd-gone"), join(world.home, ".codex/skills/cmd-gone"));
+  symlinkSync(join(generated, "AGENTS.override.md"), join(world.home, ".codex/AGENTS.override.md"));
+  const launcher = join(world.home, ".local/bin/ag");
+  writeFileSync(launcher, `#!/bin/sh\n# ag launcher\nexec node "${join(world.store, "sync/bin/ag-codex-parity.mjs")}" "$@"\n`);
+
+  ok(world.ag(["update"]));
+
+  assert.ok(readFileSync(launcher, "utf8").includes("sync/bin/ag.mjs"));
+  assert.doesNotMatch(readFileSync(launcher, "utf8"), /codex-parity/);
+  for (const rel of [".codex/skills/cmd-gone", ".codex/AGENTS.override.md"]) {
+    assert.throws(() => lstatSync(join(world.home, rel)), /ENOENT/);
+  }
+  assert.equal(world.exists("sync/.generated/codex/AGENTS.override.md"), false);
+  assert.equal(world.linkTarget(".codex/AGENTS.md"), join(world.store, "sync/.generated/codex/AGENTS.md"));
+  assert.match(ok(world.ag(["status"])), /Symlinks: +up to date/);
 });
