@@ -353,6 +353,38 @@ test("a skill with only Codex's policy reaches Cursor and Claude as one Derived 
   assert.equal(world.linkTarget(`.agents/${GENERATED}/shared/skills/release/agents`), storePath(`${SKILLS}/release/agents`));
 });
 
+test("a Codex policy written as a one-line mapping counts as Codex's policy", () => {
+  add({
+    [`${SKILLS}/release/SKILL.md`]: "---\nname: release\ndescription: Release.\n---\n\nRelease.\n",
+    [`${SKILLS}/release/agents/openai.yaml`]: "policy: {products: [codex, cursor], allow_implicit_invocation: False}\n",
+  });
+
+  assert.equal(world.linkTarget(".codex/skills/release"), storePath(`${SKILLS}/release`));
+  assert.match(derived("shared/skills/release/SKILL.md"), /^disable-model-invocation: true$/m);
+});
+
+test("Codex's policy added to a one-line policy mapping keeps its other entries in one policy block", () => {
+  add({
+    [`${SKILLS}/deploy/SKILL.md`]: USER_ONLY,
+    [`${SKILLS}/deploy/agents/openai.yaml`]: 'policy: {allow_implicit_invocation: true, products: ["codex", "a,b"]} # kept\n',
+  });
+
+  assert.equal(
+    derived("codex/skills/deploy/agents/openai.yaml"),
+    `# Derived by ag sync from ${storePath(`${SKILLS}/deploy/agents/openai.yaml`)} and ${storePath(`${SKILLS}/deploy/SKILL.md`)}. Edit those files.\npolicy:\n  allow_implicit_invocation: false\n  products: ["codex", "a,b"]\n`,
+  );
+});
+
+test("ag sync stops on a Codex policy it cannot read, and names the file", () => {
+  world.write(`${SKILLS}/deploy/SKILL.md`, USER_ONLY);
+  world.write(`${SKILLS}/deploy/agents/openai.yaml`, "policy: {\n  allow_implicit_invocation: false\n}\n");
+  world.commitAll(world.store, "Add artifacts");
+
+  const output = fails(world.ag(["sync"]));
+
+  assert.ok(output.includes(`${SKILLS}/deploy/agents/openai.yaml: write policy as a block`), output);
+});
+
 test("a skill with both keys links into every coding agent", () => {
   add({
     [`${SKILLS}/both/SKILL.md`]: USER_ONLY,
