@@ -21,12 +21,6 @@ function pushUpstreamChange(file, content) {
   world.git(maintainer, "push", "-q", "origin", "main");
 }
 
-// A commit the pre-commit hook would reject, as made with --no-verify or before the hook existed.
-function commitPastHook(root, message) {
-  world.git(root, "add", "-A");
-  world.git(root, "commit", "-q", "--no-verify", "-m", message);
-}
-
 test("ag init with a URL takes Core from upstream and pushes to the user's own origin", () => {
   const mine = world.bareRepo("mine");
 
@@ -135,7 +129,7 @@ test("ag update refuses a main with commits of its own, then continues after the
   ok(world.ag(["init", mine]));
   ok(world.ag(["new", "personal"]));
   world.write("core.txt", "mine\n", world.edit);
-  commitPastHook(world.edit, "Change core.txt on my main");
+  world.commitPastHook(world.edit, "Change core.txt on my main");
   world.git(world.edit, "push", "-q", "origin", "main");
   pushUpstreamChange("core.txt", "upstream\n");
 
@@ -162,7 +156,7 @@ test("ag push refuses a main with commits of its own, pushes nothing, and works 
   ok(world.ag(["new", "personal"]));
   const before = world.git(world.base, "--git-dir", mine, "rev-parse", "main");
   world.write("core.txt", "mine\n", world.edit);
-  commitPastHook(world.edit, "Change core.txt on my main");
+  world.commitPastHook(world.edit, "Change core.txt on my main");
 
   const output = fails(world.ag(["push"]));
 
@@ -209,12 +203,72 @@ test("pre-commit rejects Core files on a profile branch and allows profile files
   assert.equal(world.git(world.store, "log", "-1", "--format=%s"), "Add notes");
 });
 
+test("pre-commit in a store that owns its Core rejects Core files on a profile branch and allows profile files", () => {
+  ok(world.ag(["new", "personal"]));
+  world.write("core.txt", "mine\n");
+  world.write("profiles/personal/notes.md", "notes\n");
+  world.write("profiles/personal/résumé.md", "résumé\n");
+  world.write("skills/café/SKILL.md", "skill\n");
+  world.git(world.store, "add", "-A");
+
+  const output = fails(world.tryGit(world.store, "commit", "-q", "-m", "Mixed change"));
+
+  assert.match(output, /these staged files are Core, which this store edits only on main:\n {2}core\.txt\n/);
+  assert.match(output, /ag owner <path>/);
+  assert.doesNotMatch(output, /profiles\/personal|skills\//);
+
+  world.git(world.store, "reset", "-q", "--", "core.txt");
+  world.git(world.store, "commit", "-q", "-m", "Add notes");
+  assert.equal(world.git(world.store, "log", "-1", "--format=%s"), "Add notes");
+});
+
+test("pre-commit in a store that owns its Core finds a profile branch that shares its name with a tag", () => {
+  ok(world.ag(["new", "personal"]));
+  world.git(world.store, "tag", "personal");
+  world.write("core.txt", "mine\n");
+  world.git(world.store, "add", "-A");
+
+  const output = fails(world.tryGit(world.store, "commit", "-q", "-m", "Change core.txt on my profile"));
+
+  assert.match(output, /these staged files are Core, which this store edits only on main:\n {2}core\.txt\n/);
+});
+
+test("pre-commit in a store that owns its Core allows Core files on main and on a Core change branch", () => {
+  ok(world.ag(["new", "personal"]));
+  ok(world.ag(["edit", "main"]));
+  world.write("core.txt", "on main\n", world.edit);
+  world.commitAll(world.edit, "Change core.txt on main");
+
+  const worktree = join(world.base, "core-change");
+  world.git(world.store, "worktree", "add", "-q", "-b", "fix-sync", worktree, "main");
+  world.write("core.txt", "on a Core change branch\n", worktree);
+  world.commitAll(worktree, "Change core.txt on a Core change branch");
+
+  assert.equal(world.git(worktree, "log", "-1", "--format=%s"), "Change core.txt on a Core change branch");
+});
+
+test("pre-commit in a store that owns its Core allows the commit that concludes a merge of main into a profile", () => {
+  ok(world.ag(["new", "personal"]));
+  world.write("core.txt", "mine\n");
+  world.commitPastHook(world.store, "Change core.txt on my profile");
+  ok(world.ag(["edit", "main"]));
+  world.write("core.txt", "main\n", world.edit);
+  world.commitAll(world.edit, "Change core.txt on main");
+
+  assert.notEqual(world.tryGit(world.store, "merge", "-q", "main").status, 0);
+  world.write("core.txt", "main\n");
+  world.git(world.store, "add", "core.txt");
+  world.git(world.store, "commit", "-q", "--no-edit");
+
+  assert.match(world.git(world.store, "log", "-1", "--format=%s"), /^Merge branch 'main'/);
+});
+
 test("pre-commit allows the commit that concludes a merge of main into a profile", () => {
   const mine = world.bareRepo("mine");
   ok(world.ag(["init", mine]));
   ok(world.ag(["new", "personal"]));
   world.write("core.txt", "mine\n");
-  commitPastHook(world.store, "Change core.txt on my profile");
+  world.commitPastHook(world.store, "Change core.txt on my profile");
   pushUpstreamChange("core.txt", "upstream\n");
 
   assert.match(fails(world.ag(["update"])), /Conflict in ~\/\.agents on branch personal\./);

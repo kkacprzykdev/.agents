@@ -131,7 +131,7 @@ for (const [what, files, message] of [
     for (const [rel, content] of Object.entries(files)) {
       world.write(rel, content);
     }
-    world.commitAll(world.store, "Add artifacts");
+    world.commitPastHook(world.store, "Add artifacts");
     rmSync(join(world.home, ".claude/rules/default-rule.md"));
     rmSync(join(world.home, ".codex/AGENTS.md"));
 

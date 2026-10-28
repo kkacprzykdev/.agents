@@ -13,7 +13,7 @@ In a store with an `upstream` remote, Core is read-only. Only the Upstream store
 - `ag sync` links no Core-owner artifacts, because only the owner of Core can use them (ADR 0028).
 - The committed `pre-commit` hook rejects raw commits. It rejects any commit on `main`, and any commit on another branch that stages a path outside `profiles/`, `skills/`, and `.skill-lock.json`. A commit that concludes a merge passes, because merging `main` into a profile carries Core changes. `git commit --no-verify` skips the hook, and `ag push` and `ag update` still catch a commit on `main` made that way.
 
-The `upstream` remote is the whole test. A store without one, such as the Upstream store itself, owns its Core: `ag status` prints `Core: owned by this store`, and Core is edited on `main` as usual. The store rule `edit-agents-store.mdc` tells agents to read that line first.
+The `upstream` remote is the whole test. A store without one, such as the Upstream store itself, owns its Core: `ag status` prints `Core: owned by this store`, and Core is edited on `main` as usual. Its `pre-commit` hook rejects only a commit on a profile branch that stages a Core path, and lets through the branch of a Core change worktree, which has no profile folder of its own. The store rule `edit-agents-store.mdc` tells agents to read that line first.
 
 ## Considered Options
 

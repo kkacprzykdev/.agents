@@ -139,6 +139,12 @@ export function createWorld({ agSource, runtimesSource } = {}) {
     git(root, "add", "-A");
     git(root, "commit", "-q", "-m", message);
   };
+  // A commit the pre-commit hook would reject, such as Core on a profile branch. Tests use it to set up a branch
+  // with a Core of its own, as made with --no-verify or before the hook existed.
+  const commitPastHook = (root, message) => {
+    git(root, "add", "-A");
+    git(root, "commit", "-q", "--no-verify", "-m", message);
+  };
 
   // One computer: a home with empty agent homes, and the store at $HOME/.agents.
   const computer = (home) => {
@@ -202,6 +208,7 @@ export function createWorld({ agSource, runtimesSource } = {}) {
     // Like git, but returns the result instead of throwing, for commands that are expected to fail.
     tryGit: (cwd, ...args) => run("git", args, cwd),
     commitAll,
+    commitPastHook,
     originHas: (branch, path) =>
       run("git", ["--git-dir", origin, "cat-file", "-e", `${branch}:${path}`], base).status === 0,
     originHasBranch: (branch) =>

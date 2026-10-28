@@ -63,7 +63,7 @@ test("a Core-owner artifact and a Store artifact with the same name stop ag sync
   addCoreOwnerCommand();
   createDefault(world);
   world.write("artifacts/commands-store-me/core-grill.md", "store copy\n");
-  world.commitAll(world.store, "Add a Store artifact with the same name");
+  world.commitPastHook(world.store, "Add a Store artifact with the same name");
 
   const collision =
     /Collision: "core-grill\.md" comes from both "artifacts\/commands-store-me" and "artifacts\/commands-core-me"/;
