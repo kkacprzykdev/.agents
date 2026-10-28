@@ -30,7 +30,7 @@ The adaptations below were checked in throwaway projects, with each agent's proj
 A skill folder is linked as it is, except for who may invoke it. Cursor and Claude read `disable-model-invocation: true` in `SKILL.md`. Codex hides a skill from the model only through `policy.allow_implicit_invocation: false` in the skill's `agents/openai.yaml`, not through the `SKILL.md` key.
 
 - **Both keys, or neither:** a link in every agent.
-- **Only `disable-model-invocation: true`:** Codex gets a Derived folder. It links every file of the original and adds a Derived `agents/openai.yaml` with the policy. When the skill has its own `agents/openai.yaml`, the Derived one copies it and sets the policy.
+- **Only `disable-model-invocation: true`:** Codex gets a Derived folder. Codex skips a `SKILL.md` that is a link, so its `SKILL.md` keeps the original frontmatter and points at the original, like a command skill. It links every other file of the original and adds a Derived `agents/openai.yaml` with the policy. When the skill has its own `agents/openai.yaml`, the Derived one copies it and sets the policy.
 - **Only the Codex policy:** Cursor and Claude get one shared Derived folder, whose `SKILL.md` is a copy with `disable-model-invocation: true` added. Every other file is linked.
 
 Third-party skills in `skills/` are left alone. Codex lists `~/.agents/skills/` as the folder for user skills, so it reads them itself. The Codex mapping sets `reads-store-skills: true`, and `ag sync` links only store and profile skills into `~/.codex/skills/`. A link to a third-party skill there would show it twice.

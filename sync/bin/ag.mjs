@@ -1144,6 +1144,15 @@ function derivedFolder(original, replacements) {
 
 const CLAUDE_USER_ONLY = "disable-model-invocation: true";
 
+// Codex skips a SKILL.md that is a link. So, like a command skill, the Derived one keeps the frontmatter Codex reads
+// and points at the original.
+function codexSkillPointer(artifact, skill) {
+  const skillFile = join(artifact.sourcePath, "SKILL.md");
+  const { head } = splitFrontmatter(skill);
+  const body = `Read \`${skillFile}\` in full and follow it as this skill's instructions. Its relative paths start from \`${artifact.sourcePath}\`.\n`;
+  return `${withMarker(head, markdownMarker(skillFile))}${body}`;
+}
+
 // Each agent gets the "who may invoke it" setting it reads: Cursor and Claude a SKILL.md key, Codex a policy.
 // Third-party skills are left alone.
 function adaptSkills({ agent, artifacts, linkExt, plan }) {
@@ -1159,7 +1168,10 @@ function adaptSkills({ agent, artifacts, linkExt, plan }) {
     const codexKey = yaml !== null && codexUserOnly(yaml);
     const sources = yaml === null ? [skillFile] : [yamlFile, skillFile];
     if (agent === "codex" && claudeKey && !codexKey) {
-      const replacements = { "agents/openai.yaml": `${yamlMarker(...sources)}\n${withCodexPolicy(yaml)}` };
+      const replacements = {
+        "SKILL.md": codexSkillPointer(artifact, skill),
+        "agents/openai.yaml": `${yamlMarker(...sources)}\n${withCodexPolicy(yaml)}`,
+      };
       return derivedEntry(plan, artifact.name, artifact.source, `codex/skills/${artifact.name}`, derivedFolder(artifact.sourcePath, replacements), {
         isDirectory: true,
       });
