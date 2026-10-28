@@ -1110,43 +1110,78 @@ function adaptSubagents({ agent, artifacts, plan }) {
 }
 
 // The lines of a Codex agents/openai.yaml, with a one-line policy mapping, such as `policy: {allow_implicit_invocation: false}`,
-// written as a block. Any other policy that is not a block stops Sync, because Sync would misread it.
+// written as a block. Any other policy that is not a plain block stops Sync, because Sync would misread it.
 function policyLines(yaml, file) {
-  return lines(yaml).flatMap((line) => {
-    const flow = line.match(/^policy:\s*\{(.*)\}\s*(#.*)?$/);
-    if (flow) {
-      return ["policy:", ...flowEntries(flow[1]).map((entry) => `  ${entry}`)];
+  const unreadable = () =>
+    new Error(`${display(file)}: write policy as a block, or as a mapping on one line such as policy: {allow_implicit_invocation: false}`);
+  const all = lines(yaml);
+  const result = [];
+  for (const [index, line] of all.entries()) {
+    if (/^(["'])policy\1\s*:/.test(line)) {
+      throw unreadable();
     }
-    if (/^policy:/.test(line) && !/^policy:\s*(#.*)?$/.test(line)) {
-      throw new Error(`${display(file)}: write policy as a block, or as a mapping on one line such as policy: {allow_implicit_invocation: false}`);
+    const value = line.match(/^policy:\s*(.*)$/)?.[1];
+    if (value === undefined) {
+      result.push(line);
+      continue;
     }
-    return [line];
-  });
+    if (value.startsWith("{")) {
+      const flow = flowMapping(value);
+      if (!flow || !/^\s*(#.*)?$/.test(flow.rest)) {
+        throw unreadable();
+      }
+      result.push("policy:", ...flow.entries.map((entry) => `  ${entry}`));
+      continue;
+    }
+    const next = all.slice(index + 1).find((later) => later.trim() && !/^\s*#/.test(later));
+    if (!/^(#.*)?$/.test(value) || (next && /^\s/.test(next) && !/^\s+[A-Za-z_][\w-]*\s*:/.test(next))) {
+      throw unreadable();
+    }
+    result.push(line);
+  }
+  const { start, end } = policyBlock(result);
+  if (start !== -1 && result.slice(start + 1, end).some((line) => /^\s+(["'])allow_implicit_invocation\1\s*:/.test(line))) {
+    throw unreadable();
+  }
+  return result;
 }
 
-// The entries of a YAML flow mapping, split at the commas outside quotes and brackets.
-function flowEntries(text) {
+// A YAML flow mapping that starts a line's text: its entries, split at the commas outside quotes and brackets, and the
+// text after its closing brace. Null when the brace does not close on that line.
+function flowMapping(text) {
   const entries = [];
   let depth = 0;
   let quote = null;
-  let start = 0;
-  for (let at = 0; at < text.length; at += 1) {
+  let start = 1;
+  for (let at = 1; at < text.length; at += 1) {
     const char = text[at];
-    if (quote) {
-      quote = char === quote ? null : quote;
+    if (quote === '"') {
+      if (char === "\\") {
+        at += 1;
+      } else if (char === '"') {
+        quote = null;
+      }
+    } else if (quote === "'") {
+      if (char === "'" && text[at + 1] === "'") {
+        at += 1;
+      } else if (char === "'") {
+        quote = null;
+      }
     } else if (char === '"' || char === "'") {
       quote = char;
     } else if (char === "[" || char === "{") {
       depth += 1;
-    } else if (char === "]" || char === "}") {
+    } else if ((char === "]" || char === "}") && depth > 0) {
       depth -= 1;
-    } else if (char === "," && depth === 0) {
-      entries.push(text.slice(start, at));
+    } else if (char === "}" || (char === "," && depth === 0)) {
+      entries.push(text.slice(start, at).trim());
       start = at + 1;
+      if (char === "}") {
+        return { entries: entries.filter(Boolean), rest: text.slice(at + 1) };
+      }
     }
   }
-  entries.push(text.slice(start));
-  return entries.map((entry) => entry.trim()).filter(Boolean);
+  return null;
 }
 
 // The lines of the top-level policy block: where it starts and ends.
@@ -1203,13 +1238,20 @@ function derivedFolder(original, replacements) {
 
 const CLAUDE_USER_ONLY = "disable-model-invocation: true";
 
-// Codex skips a SKILL.md that is a link. So, like a command skill, the Derived one keeps the frontmatter Codex reads
-// and points at the original.
-function codexSkillPointer(artifact, skill) {
+// What Claude replaces in a skill before the model reads it: arguments, its own variables, and the output of !`commands`.
+const CLAUDE_SKILL_EXPANSION = /\$ARGUMENTS|\$\d|\$\{CLAUDE_\w+\}|!`/;
+
+// A Derived SKILL.md keeps the frontmatter an agent reads to list the skill and points at the original, like a command
+// skill. Codex needs one because it skips a SKILL.md that is a link. For Claude, a pointer would hide what Claude
+// replaces in the original before the model reads it, so a skill that uses that gets a copy.
+function derivedSkill(artifact, skill, sources, { forClaude = false } = {}) {
+  const { head, body } = splitFrontmatter(skill);
+  const marker = markdownMarker(...sources);
+  if (forClaude && CLAUDE_SKILL_EXPANSION.test(body)) {
+    return withMarker(skill, marker);
+  }
   const skillFile = join(artifact.sourcePath, "SKILL.md");
-  const { head } = splitFrontmatter(skill);
-  const body = `Read \`${skillFile}\` in full and follow it as this skill's instructions. Its relative paths start from \`${artifact.sourcePath}\`.\n`;
-  return `${withMarker(head, markdownMarker(skillFile))}${body}`;
+  return `${withMarker(head, marker)}Read \`${skillFile}\` in full and follow it as this skill's instructions. Its relative paths start from \`${artifact.sourcePath}\`.\n`;
 }
 
 // Each agent gets the "who may invoke it" setting it reads: Cursor and Claude a SKILL.md key, Codex a policy.
@@ -1228,7 +1270,7 @@ function adaptSkills({ agent, artifacts, plan }) {
     const sources = yaml === null ? [skillFile] : [yamlFile, skillFile];
     if (agent === "codex" && claudeKey && !codexKey) {
       const replacements = {
-        "SKILL.md": codexSkillPointer(artifact, skill),
+        "SKILL.md": derivedSkill(artifact, skill, [skillFile]),
         "agents/openai.yaml": `${yamlMarker(...sources)}\n${withCodexPolicy(yaml, yamlFile)}`,
       };
       return derivedEntry(plan, artifact.name, artifact.source, `codex/skills/${artifact.name}`, derivedFolder(artifact.sourcePath, replacements), {
@@ -1239,7 +1281,7 @@ function adaptSkills({ agent, artifacts, plan }) {
       const { frontmatter } = splitFrontmatter(skill);
       const own = frontmatterKey(frontmatter, "disable-model-invocation").line;
       const withKey = own ? skill.replace(own, CLAUDE_USER_ONLY) : withFrontmatterLine(skill, CLAUDE_USER_ONLY);
-      const replacements = { "SKILL.md": withMarker(withKey, markdownMarker(skillFile, yamlFile)) };
+      const replacements = { "SKILL.md": derivedSkill(artifact, withKey, [skillFile, yamlFile], { forClaude: true }) };
       return derivedEntry(plan, artifact.name, artifact.source, `${SHARED}/skills/${artifact.name}`, derivedFolder(artifact.sourcePath, replacements), {
         isDirectory: true,
       });

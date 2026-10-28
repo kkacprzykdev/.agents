@@ -348,9 +348,23 @@ test("a skill with only Codex's policy reaches Cursor and Claude as one Derived 
   }
   assert.equal(
     derived("shared/skills/release/SKILL.md"),
-    `---\nname: release\ndescription: Release.\ndisable-model-invocation: true\n---\n\n<!-- Derived by ag sync from ${storePath(`${SKILLS}/release/SKILL.md`)} and ${storePath(`${SKILLS}/release/agents/openai.yaml`)}. Edit those files. -->\n\nRelease.\n`,
+    `---\nname: release\ndescription: Release.\ndisable-model-invocation: true\n---\n\n<!-- Derived by ag sync from ${storePath(`${SKILLS}/release/SKILL.md`)} and ${storePath(`${SKILLS}/release/agents/openai.yaml`)}. Edit those files. -->\n\nRead \`${storePath(`${SKILLS}/release/SKILL.md`)}\` in full and follow it as this skill's instructions. Its relative paths start from \`${storePath(`${SKILLS}/release`)}\`.\n`,
   );
   assert.equal(world.linkTarget(`.agents/${GENERATED}/shared/skills/release/agents`), storePath(`${SKILLS}/release/agents`));
+});
+
+test("a skill whose text Claude expands keeps a copy for Cursor and Claude, and a pointer for Codex", () => {
+  add({
+    [`${SKILLS}/release/SKILL.md`]: "---\nname: release\ndescription: Release.\n---\n\nRelease $ARGUMENTS.\n",
+    [`${SKILLS}/release/agents/openai.yaml`]: "policy:\n  allow_implicit_invocation: false\n",
+    [`${SKILLS}/deploy/SKILL.md`]: "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\n\nDeploy $0.\n",
+  });
+
+  assert.equal(
+    derived("shared/skills/release/SKILL.md"),
+    `---\nname: release\ndescription: Release.\ndisable-model-invocation: true\n---\n\n<!-- Derived by ag sync from ${storePath(`${SKILLS}/release/SKILL.md`)} and ${storePath(`${SKILLS}/release/agents/openai.yaml`)}. Edit those files. -->\n\nRelease $ARGUMENTS.\n`,
+  );
+  assert.match(derived("codex/skills/deploy/SKILL.md"), /\n\nRead `.*\/deploy\/SKILL\.md` in full/);
 });
 
 test("a Codex policy written as a one-line mapping counts as Codex's policy", () => {
@@ -375,15 +389,38 @@ test("Codex's policy added to a one-line policy mapping keeps its other entries 
   );
 });
 
-test("ag sync stops on a Codex policy it cannot read, and names the file", () => {
-  world.write(`${SKILLS}/deploy/SKILL.md`, USER_ONLY);
-  world.write(`${SKILLS}/deploy/agents/openai.yaml`, "policy: {\n  allow_implicit_invocation: false\n}\n");
-  world.commitAll(world.store, "Add artifacts");
+for (const [what, yaml] of [
+  ["a comment with braces", "policy: {allow_implicit_invocation: false} # see {docs}\n"],
+  ["an escaped quote", 'policy: {note: "a\\", b", allow_implicit_invocation: false}\n'],
+  ["a doubled single quote", "policy: {note: 'it''s, fine', allow_implicit_invocation: false}\n"],
+]) {
+  test(`a one-line Codex policy with ${what} counts as Codex's policy`, () => {
+    add({
+      [`${SKILLS}/release/SKILL.md`]: "---\nname: release\ndescription: Release.\n---\n\nRelease.\n",
+      [`${SKILLS}/release/agents/openai.yaml`]: yaml,
+    });
 
-  const output = fails(world.ag(["sync"]));
+    assert.equal(world.linkTarget(".codex/skills/release"), storePath(`${SKILLS}/release`));
+    assert.match(derived("shared/skills/release/SKILL.md"), /^disable-model-invocation: true$/m);
+  });
+}
 
-  assert.ok(output.includes(`${SKILLS}/deploy/agents/openai.yaml: write policy as a block`), output);
-});
+for (const [what, yaml] of [
+  ["over several lines", "policy: {\n  allow_implicit_invocation: false\n}\n"],
+  ["on the line after policy:", "policy:\n  {allow_implicit_invocation: false}\n"],
+  ["with a quoted key", 'policy: {"allow_implicit_invocation": false}\n'],
+  ["under a quoted policy key", '"policy":\n  allow_implicit_invocation: false\n'],
+]) {
+  test(`ag sync stops on a Codex policy ${what}, and names the file`, () => {
+    world.write(`${SKILLS}/deploy/SKILL.md`, USER_ONLY);
+    world.write(`${SKILLS}/deploy/agents/openai.yaml`, yaml);
+    world.commitAll(world.store, "Add artifacts");
+
+    const output = fails(world.ag(["sync"]));
+
+    assert.ok(output.includes(`${SKILLS}/deploy/agents/openai.yaml: write policy as a block`), output);
+  });
+}
 
 test("a skill with both keys links into every coding agent", () => {
   add({
