@@ -273,7 +273,11 @@ test("a skill with only the Claude and Cursor key reaches Codex as a Derived fol
   assert.equal(world.linkTarget(".cursor/skills/deploy"), storePath(`${SKILLS}/deploy`));
   assert.equal(world.linkTarget(".claude/skills/deploy"), storePath(`${SKILLS}/deploy`));
   assert.equal(world.linkTarget(".codex/skills/deploy"), storePath(`${GENERATED}/codex/skills/deploy`));
-  assert.equal(world.linkTarget(`.agents/${GENERATED}/codex/skills/deploy/SKILL.md`), storePath(`${SKILLS}/deploy/SKILL.md`));
+  assert.equal(world.linkTarget(`.agents/${GENERATED}/codex/skills/deploy/SKILL.md`), null);
+  assert.equal(
+    derived("codex/skills/deploy/SKILL.md"),
+    `---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\n\n<!-- Derived by ag sync from ${storePath(`${SKILLS}/deploy/SKILL.md`)}. Edit that file. -->\n\nRead \`${storePath(`${SKILLS}/deploy/SKILL.md`)}\` in full and follow it as this skill's instructions. Its relative paths start from \`${storePath(`${SKILLS}/deploy`)}\`.\n`,
+  );
   assert.equal(world.linkTarget(`.agents/${GENERATED}/codex/skills/deploy/references`), storePath(`${SKILLS}/deploy/references`));
   assert.equal(
     derived("codex/skills/deploy/agents/openai.yaml"),
@@ -281,6 +285,15 @@ test("a skill with only the Claude and Cursor key reaches Codex as a Derived fol
   );
   assert.equal(world.linkTarget(".cursor/skills/third-party"), storePath("skills/third-party"));
   assert.equal(world.exists(`${GENERATED}/codex/skills/third-party`), false);
+});
+
+test("a Codex Derived SKILL.md keeps the frontmatter of an original that ends right after it", () => {
+  add({ [`${SKILLS}/deploy/SKILL.md`]: "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n--- " });
+
+  assert.equal(
+    derived("codex/skills/deploy/SKILL.md"),
+    `---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n--- \n\n<!-- Derived by ag sync from ${storePath(`${SKILLS}/deploy/SKILL.md`)}. Edit that file. -->\n\nRead \`${storePath(`${SKILLS}/deploy/SKILL.md`)}\` in full and follow it as this skill's instructions. Its relative paths start from \`${storePath(`${SKILLS}/deploy`)}\`.\n`,
+  );
 });
 
 test("a frontmatter value with a trailing comment keeps its meaning", () => {
