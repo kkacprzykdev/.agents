@@ -70,7 +70,7 @@ Two pieces of advice for command authors:
 
 Rule files live in a profile's `rules-profile-me/` and in the store's `rules-store-me/` and `rules-core-me/`, in either format:
 
-- **A Cursor `.mdc` rule:** a link in Cursor. Claude loads only files whose name ends in `.md`, so the Claude mapping uses `link-ext: .md`: the link is named `x.md` and points at `x.mdc`.
+- **A Cursor `.mdc` rule:** a link in Cursor. Claude gets a Derived `x.md` with the whole file copied, frontmatter included. Claude follows a link in `~/.claude/rules/` and loads the file only when the file it points at ends in `.md`, so a link named `x.md` to `x.mdc` is skipped.
 - **A Claude `.md` rule:** a link in Claude. Cursor ignores `.md` rules, so it gets a Derived `x.mdc` with the body copied. A rule with `paths` gets them as `globs` with `alwaysApply: false`. A rule without `paths` gets `alwaysApply: true`, because it loads on every run in Claude.
 - **Codex** has no rules. Its Derived `~/.codex/AGENTS.md` lists every rule file by path, and tells the agent to read each one before its first reply. Each rule's `description`, `globs`, and `paths` arrive as written, and the agent judges from them whether the rule applies. Codex has no scope for global text, so every rule loads on every run there.
 

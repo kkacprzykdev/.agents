@@ -84,8 +84,23 @@ test("a Claude rule links into Claude and reaches Cursor as a Derived .mdc rule,
   );
   assert.equal(world.exists(".cursor/rules/scoped.md", world.home), false);
   assert.equal(world.linkTarget(".cursor/rules/default-rule.mdc"), storePath(`${RULES}/default-rule.mdc`));
-  assert.equal(world.linkTarget(".claude/rules/default-rule.md"), storePath(`${RULES}/default-rule.mdc`));
   assert.ok(derived("codex/AGENTS.md").includes(`- \`${storePath(`${RULES}/always.md`)}\``));
+});
+
+test("a Cursor rule reaches Claude as a Derived .md copy, because Claude skips a link to an .mdc file", () => {
+  const RULES = `${PROFILE}/rules-profile-me`;
+  add({ [`${RULES}/style.mdc`]: "---\ndescription: Style\nglobs: src/**\nalwaysApply: false\n---\n\nUse tabs.\n" });
+
+  assert.equal(world.linkTarget(".cursor/rules/style.mdc"), storePath(`${RULES}/style.mdc`));
+  assert.equal(world.linkTarget(".claude/rules/style.md"), storePath(`${GENERATED}/claude/rules/style.md`));
+  assert.equal(
+    derived("claude/rules/style.md"),
+    `---\ndescription: Style\nglobs: src/**\nalwaysApply: false\n---\n\n<!-- Derived by ag sync from ${storePath(`${RULES}/style.mdc`)}. Edit that file. -->\n\nUse tabs.\n`,
+  );
+  assert.equal(
+    derived("claude/rules/default-rule.md"),
+    `<!-- Derived by ag sync from ${storePath(`${RULES}/default-rule.mdc`)}. Edit that file. -->\n\ndefault rule\n`,
+  );
 });
 
 test("a Claude rule's paths keep each glob whole, commas inside braces included", () => {

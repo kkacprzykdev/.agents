@@ -21,7 +21,7 @@ Fast-forward the Core branch to the Upstream store's Core branch, when there is 
 _Avoid_: Sync, rebase, pulling every ancestor into the Active profile
 
 **Derived file**:
-A file Sync writes into `sync/.generated/` from one or more artifacts, for one or more Coding agents, and links like an artifact. Sync rebuilds it on every run. It exists only where an agent needs other content than the artifact holds, such as Codex's TOML copy of a Markdown subagent. Where only the extension differs, Sync links the artifact under another name instead. Every Derived file names its source and says to edit that file. Git ignores the folder, and `ag status` lists the Derived files that are out of date (ADR 0033).
+A file Sync writes into `sync/.generated/` from one or more artifacts, for one or more Coding agents, and links like an artifact. Sync rebuilds it on every run. It exists only where an agent needs other content than the artifact holds, such as Codex's TOML copy of a Markdown subagent, or another file name, such as Claude's `.md` copy of a Cursor `.mdc` rule. Every Derived file names its source and says to edit that file. Git ignores the folder, and `ag status` lists the Derived files that are out of date (ADR 0033).
 _Avoid_: Generated artifact, build output, copy
 
 **Runtime target**:
@@ -29,7 +29,7 @@ A folder in an Agent home (e.g. `~/.cursor/skills/`) that receives symlinks poin
 _Avoid_: Destination, install location
 
 **Runtime mapping**:
-One Coding agent's entry in `sync/runtimes.yaml`: its Agent home, the target folder for each artifact kind, and an optional link extension per kind. A target receives links to artifacts or to their Derived files. Two kinds may share one target, as Codex's commands and skills do in `~/.codex/skills/`. The adapters that decide when a kind needs a Derived file live in Core's code and pick by each file's source format, so a mapping never names them. `reads-store-skills: true` marks a coding agent that reads third-party skills from `~/.agents/skills/` itself, so sync does not link them into it. Core owns every runtime mapping, and every profile links into every coding agent.
+One Coding agent's entry in `sync/runtimes.yaml`: its Agent home and the target folder for each artifact kind. A target receives links to artifacts or to their Derived files. Two kinds may share one target, as Codex's commands and skills do in `~/.codex/skills/`. The adapters that decide when a kind needs a Derived file live in Core's code and pick by each file's source format, so a mapping never names them. `reads-store-skills: true` marks a coding agent that reads third-party skills from `~/.agents/skills/` itself, so sync does not link them into it. Core owns every runtime mapping, and every profile links into every coding agent.
 _Avoid_: sync.yaml, a per-profile copy of the mappings, a per-profile runtimes list
 
 **Link mapping**:
