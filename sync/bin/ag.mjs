@@ -1109,7 +1109,47 @@ function adaptSubagents({ agent, artifacts, plan }) {
   });
 }
 
-// The lines of the top-level policy block of a Codex agents/openai.yaml: where it starts and ends.
+// The lines of a Codex agents/openai.yaml, with a one-line policy mapping, such as `policy: {allow_implicit_invocation: false}`,
+// written as a block. Any other policy that is not a block stops Sync, because Sync would misread it.
+function policyLines(yaml, file) {
+  return lines(yaml).flatMap((line) => {
+    const flow = line.match(/^policy:\s*\{(.*)\}\s*(#.*)?$/);
+    if (flow) {
+      return ["policy:", ...flowEntries(flow[1]).map((entry) => `  ${entry}`)];
+    }
+    if (/^policy:/.test(line) && !/^policy:\s*(#.*)?$/.test(line)) {
+      throw new Error(`${display(file)}: write policy as a block, or as a mapping on one line such as policy: {allow_implicit_invocation: false}`);
+    }
+    return [line];
+  });
+}
+
+// The entries of a YAML flow mapping, split at the commas outside quotes and brackets.
+function flowEntries(text) {
+  const entries = [];
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  for (let at = 0; at < text.length; at += 1) {
+    const char = text[at];
+    if (quote) {
+      quote = char === quote ? null : quote;
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === "[" || char === "{") {
+      depth += 1;
+    } else if (char === "]" || char === "}") {
+      depth -= 1;
+    } else if (char === "," && depth === 0) {
+      entries.push(text.slice(start, at));
+      start = at + 1;
+    }
+  }
+  entries.push(text.slice(start));
+  return entries.map((entry) => entry.trim()).filter(Boolean);
+}
+
+// The lines of the top-level policy block: where it starts and ends.
 function policyBlock(all) {
   const start = all.findIndex((line) => /^policy:\s*(#.*)?$/.test(line));
   let end = start + 1;
@@ -1120,14 +1160,14 @@ function policyBlock(all) {
 }
 
 // Codex hides a skill from the model only through agents/openai.yaml, not through the SKILL.md key.
-function codexUserOnly(yaml) {
-  const all = lines(yaml);
+function codexUserOnly(yaml, file) {
+  const all = policyLines(yaml, file);
   const { start, end } = policyBlock(all);
-  return start !== -1 && all.slice(start + 1, end).some((line) => /^\s+allow_implicit_invocation:\s*false\s*(#.*)?$/.test(line));
+  return start !== -1 && all.slice(start + 1, end).some((line) => /^\s+allow_implicit_invocation:\s*(false|False|FALSE)\s*(#.*)?$/.test(line));
 }
 
-function withCodexPolicy(yaml) {
-  const all = yaml ? lines(yaml.replace(/\r?\n$/, "")) : [];
+function withCodexPolicy(yaml, file) {
+  const all = yaml ? policyLines(yaml.replace(/\r?\n$/, ""), file) : [];
   const { start, end } = policyBlock(all);
   if (start === -1) {
     return `${[...all, ...lines(CODEX_USER_ONLY.trimEnd())].join("\n")}\n`;
@@ -1184,12 +1224,12 @@ function adaptSkills({ agent, artifacts, plan }) {
     const skill = readFileSync(skillFile, "utf8");
     const yaml = existsSync(yamlFile) ? readFileSync(yamlFile, "utf8") : null;
     const claudeKey = frontmatterKey(splitFrontmatter(skill).frontmatter, "disable-model-invocation").value === "true";
-    const codexKey = yaml !== null && codexUserOnly(yaml);
+    const codexKey = yaml !== null && codexUserOnly(yaml, yamlFile);
     const sources = yaml === null ? [skillFile] : [yamlFile, skillFile];
     if (agent === "codex" && claudeKey && !codexKey) {
       const replacements = {
         "SKILL.md": codexSkillPointer(artifact, skill),
-        "agents/openai.yaml": `${yamlMarker(...sources)}\n${withCodexPolicy(yaml)}`,
+        "agents/openai.yaml": `${yamlMarker(...sources)}\n${withCodexPolicy(yaml, yamlFile)}`,
       };
       return derivedEntry(plan, artifact.name, artifact.source, `codex/skills/${artifact.name}`, derivedFolder(artifact.sourcePath, replacements), {
         isDirectory: true,
