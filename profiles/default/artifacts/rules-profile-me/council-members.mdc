@@ -19,7 +19,7 @@ You are in T3 Code when T3's `orchestrator_capabilities` tool is available (any 
 | GPT 6.1 Sol | GPT 6.1 Sol | High |
 | Claude Fable 5.2 | Claude Fable 5.2 | Medium |
 
-### Default (Cursor, Claude Code, and every other coding agent)
+### Default
 
 | Delegate | Model | Effort |
 |---|---|---|
