@@ -476,6 +476,15 @@
       "skillFolderHash": "362200ac2fb3c17b765049444e88de73767e6d08",
       "installedAt": "2026-11-06T14:28:08.479Z",
       "updatedAt": "2026-11-06T14:28:08.479Z"
+    },
+    "council": {
+      "source": "t3dotgg/tstack",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/t3dotgg/tstack.git",
+      "skillPath": "skills/council/SKILL.md",
+      "skillFolderHash": "797e3657df1f2bf919211fce88862dafd3b5eabb",
+      "installedAt": "2026-11-12T11:11:28.285Z",
+      "updatedAt": "2026-11-12T11:11:28.285Z"
     }
   },
   "dismissed": {
