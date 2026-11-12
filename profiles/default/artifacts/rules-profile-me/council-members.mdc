@@ -1,0 +1,41 @@
+---
+description: Fixed council members for the council skill, with one set for T3 Code and one for every other coding agent
+alwaysApply: true
+---
+
+# Council members
+
+Whenever you run the `council` skill, its three delegates are always the ones listed for your coding agent, each at the effort shown.
+
+## Which set applies
+
+You are in T3 Code when T3's `orchestrator_capabilities` tool is available (any prefix, e.g. `mcp__t3-code__orchestrator_capabilities`). When it isn't listed, run one tool search for it, since T3 often attaches its tools late. If it is found, use the T3 Code set. Otherwise, use the default set.
+
+### T3 Code
+
+| Delegate | Model | Effort |
+|---|---|---|
+| Claude Opus 5.5 | Claude Opus 5.5 | High |
+| GPT 6.1 Sol | GPT 6.1 Sol | High |
+| Claude Fable 5.2 | Claude Fable 5.2 | Medium |
+
+### Default (Cursor, Claude Code, and every other coding agent)
+
+| Delegate | Model | Effort |
+|---|---|---|
+| Claude Opus 5.5 | Claude Opus 5.5 | High |
+| Gemini 4 Carbon | Gemini 4 Carbon | Medium |
+| Claude Fable 5.2 | Claude Fable 5.2 | Medium |
+
+## Precedence
+
+- These are the council members the skill's "If the user's instructions name council members, use those" refers to. Do not pick the latest flagship model from each provider instead.
+- In T3 Code, the T3 Code set replaces the target that the model routing table gives for review. Every delegate still runs as a child, and the routing table's Brief rules still apply.
+- A model or effort the user names in the request wins over these tables, for that run only.
+
+## Resolving the models
+
+- Resolve each model and its effort to the ids your coding agent offers. In T3 Code, use `orchestrator_capabilities`, and start each delegate with `delegate_task`. Elsewhere, use the models the subagent tool lists.
+- Set the effort explicitly on every delegate. Do not rely on the harness default.
+- If a model, or its effort level, is not offered, report it to the user before starting the council. Do not substitute another model or another effort.
+- In the PR description's `## Council review` table, name the delegates as in the first column of the set you used.
