@@ -8,18 +8,12 @@ It is set up and used on macOS. It has not been prepared for other operating sys
 
 ## Machines
 
-This Lineage runs on the machines below. Use this list to judge where a change to `default` will run and what you can test from where you are.
+This Lineage runs on more than one machine. Use this section to judge where a change to `default` will run and what you can test from where you are.
 
-| Machine | Profile | Coding agents |
-|---|---|---|
-| Main personal macOS machine | `default` | T3 Code, running Codex and Claude Code |
-| A second macOS machine | a Protected profile created from `default` | Cursor, and the Claude Code CLI in the terminal |
-| A Windows laptop | none set up | none set up |
-
-- Every change to `default` reaches the second macOS machine through `ag update`. So an artifact in this profile must work in Cursor and in Claude Code, not only in T3 Code.
-- The second macOS machine has no T3 Code and no Codex. An instruction that uses T3 tools must also say what to do when they are missing.
-- Its profile is Protected, so its branch stays on that machine. An agent on the main machine can neither read nor test it. After a change that affects it, list the checks to run on that machine.
-- The Windows laptop is available for testing Windows support. Suggest a test there instead of guessing how something behaves on Windows.
+- The main machine runs `default`. Changes are tested there in every runtime that [`sync/runtimes.yaml`](../../sync/runtimes.yaml) maps.
+- Another machine runs a Protected profile created from `default`. Every change to `default` reaches it through `ag update`. Its branch stays on that machine, so an agent on the main machine can neither read nor test it. After a change that affects it, list the checks to run there.
+- That machine does not have every coding agent installed. An artifact must not depend on one coding agent, or on T3 Code, without saying what to do when it is missing.
+- Windows is tested outside this Lineage. Ask the user to check Windows behavior instead of guessing it.
 
 ## Layout
 
