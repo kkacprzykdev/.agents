@@ -494,6 +494,15 @@
       "skillFolderHash": "1ccf2d6f2f4c1bec790ed3105a55d8a5fce5b173",
       "installedAt": "2026-11-15T20:24:09.574Z",
       "updatedAt": "2026-11-15T20:24:09.574Z"
+    },
+    "maintain-verification-skill": {
+      "source": "cursor/plugins",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/cursor/plugins.git",
+      "skillPath": "harness/pstack/claude-code/skills/maintain-verification-skill/SKILL.md",
+      "skillFolderHash": "958fcc735f9f15e18907cf00831160bbcde0b534",
+      "installedAt": "2026-11-15T20:24:22.172Z",
+      "updatedAt": "2026-11-15T20:24:22.172Z"
     }
   },
   "dismissed": {
