@@ -28,3 +28,7 @@
 - **Extra review**: when the user asks for another, a second, or an additional review on a named model ("also", "plus"), run it in addition to the table's review, not instead of it. It mirrors the table's review, with the same reviewers and prompts (e.g. both of a skill's reviewers), all on the named model, with model and effort resolved as in Overrides. When resolving means asking the user, hold every review until they answer, then start them all together. Report the reviews side by side, marking where they agree and where they differ.
 - **Overrides**: the user wins. Naming a model, without asking for an extra review, replaces the table's target, and the job still runs as a child at the user's stated effort, or the table's when none is stated. Resolve a named model and effort to their ids in `orchestrator_capabilities`, and ask the user when either isn't listed. Saying "do it yourself" or asking for a new thread also overrides the table. For a new thread, use `t3_thread_launch` with the table's target.
 - **Verify** a child's output before relaying it: the image file exists, and the review cites real lines.
+
+## Home repo
+
+Private notes for every project live in the home repo at `~/home`. When it is missing, clone it from `https://github.com/kkacprzykdev/home`. Read its `AGENTS.md` when asked what to work on next, for a project's stack rank or backlog order, or for private notes on a project.
