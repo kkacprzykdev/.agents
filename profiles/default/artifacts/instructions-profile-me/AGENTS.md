@@ -31,4 +31,4 @@
 
 ## Home repo
 
-My private knowledge about my projects lives in the home repo at `~/home`. Read its `AGENTS.md` at the start of every session. It lists what the home repo holds and when to read each part.
+My private knowledge about my projects lives in the home repo at `~/home`. Read its `AGENTS.md` at the start of every session. It lists what the home repo holds and when to read each part. When my prompt mentions the home repo, look there before you answer, because I expect the answer to be in it.
