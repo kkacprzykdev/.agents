@@ -31,4 +31,4 @@
 
 ## Home repo
 
-My private knowledge about my projects lives in the home repo at `~/home`. Read its `AGENTS.md`, the index of everything it holds, when a request needs something the current repository does not record, such as what to work on next.
+My private knowledge about my projects lives in the home repo at `~/home`. Read its `AGENTS.md` at the start of every session. It lists what the home repo holds and when to read each part.
