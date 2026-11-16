@@ -31,4 +31,4 @@
 
 ## Home repo
 
-Private notes for every project live in the home repo at `~/home`. When it is missing, clone it from `https://github.com/kkacprzykdev/home`. Read its `AGENTS.md` when asked what to work on next, for a project's stack rank or backlog order, or for private notes on a project.
+My private knowledge about my projects lives in the home repo at `~/home`. When it is missing, clone it from `https://github.com/kkacprzykdev/home`. Read its `AGENTS.md`, the index of everything it holds, when a request needs something the current repository does not record, such as what to work on next.
