@@ -31,4 +31,4 @@
 
 ## Home repo
 
-My private knowledge about my projects lives in the home repo at `~/home`. When it is missing, clone it from `https://github.com/kkacprzykdev/home`. Read its `AGENTS.md`, the index of everything it holds, when a request needs something the current repository does not record, such as what to work on next.
+My private knowledge about my projects lives in the home repo at `~/home`. Read its `AGENTS.md`, the index of everything it holds, when a request needs something the current repository does not record, such as what to work on next.
