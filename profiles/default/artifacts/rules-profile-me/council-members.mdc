@@ -24,7 +24,7 @@ You are in T3 Code when T3's `orchestrator_capabilities` tool is available (any 
 | Delegate | Model | Effort |
 |---|---|---|
 | Claude Opus 5.5 | Claude Opus 5.5 | High |
-| Gemini 4 Carbon | Gemini 4 Carbon | Medium |
+| Gemini 4 Neon | Gemini 4 Neon | High |
 | Claude Fable 5.2 | Claude Fable 5.2 | Medium |
 
 ## Precedence
