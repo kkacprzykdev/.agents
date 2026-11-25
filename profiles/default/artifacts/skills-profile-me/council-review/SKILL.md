@@ -1,7 +1,7 @@
 ---
 name: council-review
 disable-model-invocation: true
-description: Run a read-only 3-model council code review on a pull request or local changes, reporting 3/3 findings and 2/3 must-fix issues, with a GitHub comment draft when a PR link is given. User-invoked only.
+description: Run a read-only 3-model council code review on a pull request or local changes, reporting 3/3 findings and 2/3 must-fix issues, with a GitHub comment draft when a PR link or number is given. User-invoked only.
 ---
 
 # Council review
@@ -10,8 +10,8 @@ Run one read-only code review pass with three independent delegates using the `c
 
 ## 1. Resolve the target
 
-- **PR link or number** (this repo or another): inspect read-only with `gh pr view`, `gh pr diff`, and `gh api` at the PR's head commit. Remember that a PR link was provided.
-- **Local changes** (default when no PR link is given): inspect the combined diff from `<merge-base>` to the working tree (`git diff <merge-base>` plus untracked files from `git status --short`), covering committed, pushed, staged, and unstaged changes together. Use a narrower scope if the user states one.
+- **PR link or number** (this repo or another): inspect read-only with `gh pr view`, `gh pr diff`, and `gh api` at the PR's head commit. Note that a PR reference was provided.
+- **Local changes** (default when no PR link or number is given): inspect the combined diff from `<merge-base>` to the working tree (`git diff <merge-base>` plus untracked files from `git status --short`), covering committed, pushed, staged, and unstaged changes together. Use a narrower scope if the user states one.
 
 ## 2. Run one read-only council round
 
@@ -45,6 +45,6 @@ The review is done when every kept finding has been verified against the code at
 1. Print the Round 1 score table using the delegate names from `council-members`.
 2. List the kept issues with consensus tag, origin, exact `file:line`, concrete impact, and rough fix size. If nothing met the threshold, state `None`.
 3. **GitHub comment draft:**
-   - **PR link provided and at least one issue kept:** draft a ready-to-paste GitHub comment naming the 3 models that ran and listing the flagged issues with exact locations, impact, and suggested fixes. Write in constructive teammate prose (full sentences, no semicolons). Never post the comment automatically.
-   - **PR link provided and no issues kept:** state that nothing met the threshold and skip the draft.
-   - **No PR link provided (local review):** skip the comment draft.
+   - **PR link or number provided and at least one issue kept:** draft a ready-to-paste GitHub comment framed as a 3-model council review that names the 3 models that ran (for example, `"I used the council skill to review this PR with 3 independent AI models (<Model A>, <Model B>, and <Model C>)..."`). State detection accurately: say that all 3 models independently flagged `3/3` issues rather than overclaiming unanimous must-fix agreement, distinguish `2/3` issues accurately when present, and omit per-model blocker breakdowns. List each issue with exact location, impact, and suggested fix in constructive teammate prose (full sentences, no semicolons). Never post the comment automatically.
+   - **PR link or number provided and no issues kept:** state that nothing met the threshold and skip the draft.
+   - **No PR link or number provided (local review):** skip the comment draft.

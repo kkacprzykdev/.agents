@@ -1,7 +1,7 @@
 ---
 name: council-review-and-fix
 disable-model-invocation: true
-description: Review local changes in rounds with a 3-model council, fixing verified 3/3 findings and 2/3 must-fix issues until all delegates reach the target score (default 8) or max rounds (default 3). User-invoked only.
+description: Review local changes in rounds with a 3-model council, fixing verified consensus issues and sub-target feedback until all delegates reach the target score (default 8) or max rounds (default 3). User-invoked only.
 ---
 
 # Council review and fix
@@ -14,7 +14,7 @@ Override any of these when the user states a different value in the prompt:
 
 - **Target score (`minScore`):** `8` (all 3 delegates must score `>= minScore`)
 - **Max rounds (`maxRounds`):** `3`
-- **Fix threshold:** all verified **3/3** findings (regardless of severity label) plus all verified **2/3 must-fix** findings
+- **Fix policy:** fix all verified **3/3** findings (regardless of severity label) and all verified **2/3 must-fix** findings. Whenever any delegate scores below `minScore`, also fix verified in-scope feedback holding that delegate below `minScore` so every delegate can reach the target score.
 
 ## 1. Check scope and checkout
 
@@ -35,17 +35,19 @@ Repeat for `round = 1..maxRounds`:
    - Cite exact `file:line` and a concrete failure scenario for every finding.
    - In round 2+, include the updated diff, a short list of what changed since the prior round, and an instruction to stay within the original change's scope.
 
-2. **Verify and filter findings:** check every candidate finding against the code and drop any that do not hold. Select every verified **3/3** finding and **2/3 must-fix** finding. Ignore 1/3 findings and 2/3 non-blocking nits.
+2. **Verify and select findings:** check every candidate finding against the code and drop any that do not hold.
+   - Select every verified **3/3** finding (regardless of severity label) and every verified **2/3 must-fix** finding.
+   - When any delegate scored `< minScore`, also select verified in-scope findings holding that delegate below `minScore` so all three delegates can reach `minScore`. Drop out-of-scope requests and scope creep.
+   - When all three delegates scored `>= minScore`, ignore 1/3 findings and 2/3 non-blocking nits.
 
 3. **Check stopping conditions:**
-   - **All 3 delegates scored `>= minScore` and no qualifying findings remain:** exit the loop as done.
-   - **`round == maxRounds` and the target score is still not reached:** stop without starting another round. Report the round-by-round scores, list what is still holding the score down, and give a clear recommendation on whether continuing is worthwhile or hitting diminishing returns so the user can decide.
-   - **A delegate scored `< minScore` but no 3/3 or 2/3 must-fix findings remain:** check whether any remaining sub-`minScore` feedback is a real, in-scope defect worth fixing. If yes, fix it and continue. If only style nits or scope creep remain, stop and ask the user before churning further.
+   - **Done:** all 3 delegates scored `>= minScore` and no verified `3/3` or `2/3 must-fix` findings remain. Exit the loop.
+   - **`round == maxRounds` and not done** (either a delegate scored `< minScore` or verified `3/3` / `2/3 must-fix` findings remain): stop without editing further or starting another round. Report the round-by-round scores, list the remaining findings and what is holding the score down, and give a clear recommendation on whether applying fixes and running another round is worthwhile or hitting diminishing returns so the user can decide.
 
-4. **Apply fixes and verify:** fix only the selected in-scope findings. Fight scope creep across rounds. Run relevant checks (tests, lint, typecheck) and confirm they pass before starting the next round.
+4. **Apply fixes and verify:** fix the selected in-scope findings. Fight scope creep across rounds. Run relevant checks (tests, lint, typecheck) and confirm they pass before starting the next round.
 
 ## 3. Report in chat
 
 - Show the round-by-round score table using the delegate names from `council-members`.
 - Summarize what was fixed in each round and which checks ran.
-- If stopped early or at `maxRounds`, clearly explain the remaining feedback and whether another round makes sense.
+- If stopped at `maxRounds`, clearly explain the remaining feedback and whether continuing makes sense.
