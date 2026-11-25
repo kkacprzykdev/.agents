@@ -81,20 +81,19 @@ rm -f /tmp/slack-curl.txt
    - `LOGIN_OK ...` → run `check-auth.py`. Continue only on `AUTH_OK`.
    - `LOGIN_FAILED reason=...` → tell the user that reason (no secrets). Ask for a fresh Copy as cURL of `api/conversations.view`. STOP.
 
-**Do not** use these (they fail):
+**Do not** do these:
 
-- `slackcli auth parse-curl --login` in a terminal (interactive; user and agent shells both fail)
-- `slackcli auth parse-curl --login < /tmp/slack-curl.txt` (prints `No cURL command provided`)
-- `--from-clipboard` (the agent clipboard is not the browser copy)
+- Run `slackcli auth login-browser` yourself. It cannot store the `dbd` cookie, so login fails with 403.
+- Run `slackcli auth parse-curl` interactively or with `--from-clipboard`. The agent clipboard is not the browser copy.
 
-The script URL-decodes the `d=` cookie (`xoxd`), finds `xoxc` in the body, takes the workspace host from the request URL (including `*.enterprise.slack.com`, never `app.slack.com`), and runs `slackcli auth login-browser`. `LOGIN_OK` is not enough — `check-auth.py` must still print `AUTH_OK`.
+The script URL-decodes the `d=` cookie (`xoxd`), finds `xoxc` in the body, takes the workspace host from the request URL (including `*.enterprise.slack.com`, never `app.slack.com`), and pipes the full saved cURL to `slackcli auth parse-curl --login` on stdin. That path also saves the `dbd` cookie and the browser User-Agent, which Slack needs. The script prints `LOGIN_FAILED reason=login_browser_failed` if the installed SlackCLI is too old or the paste lacks `dbd`. `LOGIN_OK` is not enough — `check-auth.py` must still print `AUTH_OK`.
 
 ## Method Priority
 
 | Task | Method | Why |
 |---|---|---|
 | Auth proof | `scripts/check-auth.py` (`auth.test`) | Only live probe; `auth list` can lie |
-| Auth setup | User pastes a browser cURL into chat; agent runs `scripts/login-from-curl.py` then `check-auth.py` | Terminal `parse-curl` and stdin redirect both fail |
+| Auth setup | User pastes a browser cURL into chat; agent runs `scripts/login-from-curl.py` then `check-auth.py` | Script saves `dbd` via `parse-curl` on stdin; needs an install with the fix (see Install) |
 | Channel discovery | SlackCLI `conversations list` | **After** `AUTH_OK` only |
 | Fetching messages & threads | **Direct Slack API (Python/urllib)** | Only method that returns `files` |
 | Downloading images | **Direct Slack API (Python/urllib)** | Needs Bearer token and URL-encoded cookie |
@@ -104,24 +103,100 @@ There is **no** fallback for reading messages.
 
 ## Install SlackCLI
 
-Before the probe, verify the CLI (needed for later login and channel list):
+Login needs a SlackCLI build that saves the `dbd` cookie. Without `dbd`, Slack returns HTTP 403 on `auth.test` even with valid tokens. The fix is [PR #559](https://github.com/shaharia-lab/slackcli/pull/559) (issue [#558](https://github.com/shaharia-lab/slackcli/issues/558)), merged to `main` on 2026-11-23. Releases published before the fix do not include it. Decide the install source every time, not from memory.
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+FIX_SHA=94bda7629be7bc3bf2124504eef26c36d49df2bc   # full SHA of the dbd fix on main
+```
+
+### Step 1: Check the installed build
 
 ```bash
 which slackcli 2>/dev/null && slackcli --version || echo "NOT_INSTALLED"
+cat ~/.local/share/slackcli/INSTALLED_FROM 2>/dev/null || echo "UNKNOWN_SOURCE"
 ```
 
-If `NOT_INSTALLED`, detect with `uname -ms` and install:
+`slackcli --version` cannot prove the fix: `main` builds report the package version. Trust only `INSTALLED_FROM`, which this skill writes at install time (`release <tag>` or `main <sha>`). Check whether the recorded source has the fix:
+
+```bash
+SRC_REF=$(awk '{print $2}' ~/.local/share/slackcli/INSTALLED_FROM 2>/dev/null)
+gh api repos/shaharia-lab/slackcli/compare/$FIX_SHA...$SRC_REF -q .status 2>/dev/null
+```
+
+`ahead` or `identical` → the installed build has the fix. Skip to Step 4 unless the probe fails. Anything else, including `NOT_INSTALLED` or `UNKNOWN_SOURCE` → go to Step 2.
+
+### Step 2: Does the latest release include the fix?
+
+```bash
+TAG=$(gh api repos/shaharia-lab/slackcli/releases/latest -q .tag_name)
+STATUS=$(gh api repos/shaharia-lab/slackcli/compare/$FIX_SHA...$TAG -q .status)
+echo "latest=$TAG fix_in_release=$STATUS"
+```
+
+- `ahead` or `identical` → the fix is in `$TAG`. Go to Step 3a.
+- `behind` or `diverged` → the fix is newer than the release. Go to Step 3b.
+
+### Step 3a: Install the release binary (fix included)
+
+Pick the asset for the platform (`uname -ms`):
 
 - `Darwin arm64` → `slackcli-macos-arm64`
 - `Darwin x86_64` → `slackcli-macos`
 - `Linux x86_64` → `slackcli-linux`
+- `Linux aarch64` → `slackcli-linux-arm64`
 
 ```bash
-curl -L https://github.com/shaharia-lab/slackcli/releases/latest/download/slackcli-macos-arm64 -o /tmp/slackcli && \
-chmod +x /tmp/slackcli && mkdir -p ~/.local/bin && mv /tmp/slackcli ~/.local/bin/slackcli
+ASSET=slackcli-macos-arm64   # replace with the asset for this platform
+curl -fL "https://github.com/shaharia-lab/slackcli/releases/download/$TAG/$ASSET" -o /tmp/slackcli && \
+chmod +x /tmp/slackcli && mkdir -p ~/.local/bin ~/.local/share/slackcli && \
+mv /tmp/slackcli ~/.local/bin/slackcli && \
+echo "release $TAG" > ~/.local/share/slackcli/INSTALLED_FROM
 ```
 
-Swap the filename for Intel or Linux. Then `export PATH="$HOME/.local/bin:$PATH"`. Tell the user to add that line to `~/.zshrc` or `~/.bashrc`.
+### Step 3b: Build `main` (fix not in the latest release)
+
+Requires Bun and network access. The default branch is `main`.
+
+```bash
+export BUN_INSTALL="$HOME/.bun"; export PATH="$BUN_INSTALL/bin:$PATH"
+command -v bun >/dev/null || curl -fsSL https://bun.sh/install | bash
+SRC="$HOME/.local/src/slackcli"
+if [ -d "$SRC/.git" ]; then
+  git -C "$SRC" fetch -q origin main && git -C "$SRC" checkout -q main && git -C "$SRC" pull -q --ff-only origin main
+else
+  git clone -q --branch main https://github.com/shaharia-lab/slackcli.git "$SRC"
+fi
+cd "$SRC" && MAIN_SHA=$(git rev-parse HEAD)
+git merge-base --is-ancestor $FIX_SHA $MAIN_SHA && echo "fix included in $MAIN_SHA" || { echo "FIX MISSING - stop"; exit 1; }
+```
+
+Install dependencies and build. If `bun install` hangs, the registry in `~/.npmrc` is probably unreachable (for example a corporate mirror that needs the VPN). Use the public npm registry for this command only. Do not edit `~/.npmrc`:
+
+```bash
+timeout 300 bun install --frozen-lockfile || NPM_CONFIG_USERCONFIG=/dev/null NPM_CONFIG_REGISTRY=https://registry.npmjs.org/ timeout 300 bun install --frozen-lockfile
+bun run build && ./dist/slackcli --version
+```
+
+Replace the installed binary (keep the old one as a backup) and record the source:
+
+```bash
+mkdir -p ~/.local/bin ~/.local/share/slackcli
+[ -f ~/.local/bin/slackcli ] && cp ~/.local/bin/slackcli ~/.local/bin/slackcli.bak
+cp "$SRC/dist/slackcli" ~/.local/bin/slackcli && chmod +x ~/.local/bin/slackcli
+echo "main $MAIN_SHA" > ~/.local/share/slackcli/INSTALLED_FROM
+```
+
+### Step 4: Verify
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+slackcli --version && cat ~/.local/share/slackcli/INSTALLED_FROM
+```
+
+Tell the user which source was installed (`release <tag>` or `main <sha>`). Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` or `~/.bashrc` if it isn't there.
+
+Install failure does not replace the probe. Still run `check-auth.py` (tokens may already exist). If the probe blocks, STOP. Never install a release that lacks the fix and then conclude the Slack session is dead. A 403 from `auth.test` after a pasted cURL that includes `dbd` means the installed build is pre-fix: redo Steps 1–3.
 
 Install failure does not replace the probe. Still run `check-auth.py` (tokens may already exist). If the probe blocks, STOP.
 
@@ -150,6 +225,10 @@ workspace_url = ws['workspace_url']
 
 # CRITICAL: xoxd cookie value MUST be URL-encoded for API calls
 encoded_xoxd = urllib.parse.quote(xoxd, safe='')
+dbd = (ws.get('dbd_cookie') or '').strip()
+# Slack returns 403 without the dbd cookie. Send it whenever it is stored.
+cookie_header = f"d={encoded_xoxd}; dbd={dbd};" if dbd else f"d={encoded_xoxd};"
+ua = ws.get('user_agent', '')
 ```
 
 ## Channel discovery (after AUTH_OK)
@@ -183,6 +262,10 @@ ws = data['workspaces'][ws_id]
 xoxc = ws['xoxc_token'].strip()
 xoxd = ws['xoxd_token'].strip()
 encoded_xoxd = urllib.parse.quote(xoxd, safe='')
+dbd = (ws.get('dbd_cookie') or '').strip()
+# Slack returns 403 without the dbd cookie. Send it whenever it is stored.
+cookie_header = f"d={encoded_xoxd}; dbd={dbd};" if dbd else f"d={encoded_xoxd};"
+ua = ws.get('user_agent', '')
 workspace_url = ws['workspace_url']
 
 url = f'{workspace_url}/api/conversations.history'
@@ -194,7 +277,7 @@ params = urllib.parse.urlencode({
 
 req = urllib.request.Request(url, data=params)
 req.add_header('Content-Type', 'application/x-www-form-urlencoded')
-req.add_header('Cookie', f'd={encoded_xoxd};')
+req.add_header('Cookie', cookie_header); req.add_header('User-Agent', ua)
 
 resp = urllib.request.urlopen(req)
 result = json.loads(resp.read().decode())
@@ -232,6 +315,10 @@ ws = data['workspaces'][ws_id]
 xoxc = ws['xoxc_token'].strip()
 xoxd = ws['xoxd_token'].strip()
 encoded_xoxd = urllib.parse.quote(xoxd, safe='')
+dbd = (ws.get('dbd_cookie') or '').strip()
+# Slack returns 403 without the dbd cookie. Send it whenever it is stored.
+cookie_header = f"d={encoded_xoxd}; dbd={dbd};" if dbd else f"d={encoded_xoxd};"
+ua = ws.get('user_agent', '')
 workspace_url = ws['workspace_url']
 
 url = f'{workspace_url}/api/conversations.replies'
@@ -244,7 +331,7 @@ params = urllib.parse.urlencode({
 
 req = urllib.request.Request(url, data=params)
 req.add_header('Content-Type', 'application/x-www-form-urlencoded')
-req.add_header('Cookie', f'd={encoded_xoxd};')
+req.add_header('Cookie', cookie_header); req.add_header('User-Agent', ua)
 
 resp = urllib.request.urlopen(req)
 result = json.loads(resp.read().decode())
@@ -321,6 +408,10 @@ ws = data['workspaces'][ws_id]
 xoxc = ws['xoxc_token'].strip()
 xoxd = ws['xoxd_token'].strip()
 encoded_xoxd = urllib.parse.quote(xoxd, safe='')
+dbd = (ws.get('dbd_cookie') or '').strip()
+# Slack returns 403 without the dbd cookie. Send it whenever it is stored.
+cookie_header = f"d={encoded_xoxd}; dbd={dbd};" if dbd else f"d={encoded_xoxd};"
+ua = ws.get('user_agent', '')
 
 with open('/tmp/slack-thread.json') as f:
     result = json.load(f)
@@ -337,7 +428,7 @@ for m in result.get('messages', []):
 
         req = urllib.request.Request(url_private)
         req.add_header('Authorization', f'Bearer {xoxc}')
-        req.add_header('Cookie', f'd={encoded_xoxd};')
+        req.add_header('Cookie', cookie_header); req.add_header('User-Agent', ua)
 
         resp = urllib.request.urlopen(req)
         img_data = resp.read()
@@ -423,13 +514,19 @@ slackcli messages react --channel-id=<CHANNEL_ID> --timestamp=<TS> --emoji=thumb
 
 Follow **STOP procedure**. Ask the user to paste a Slack API cURL into this chat. Do not treat `slackcli auth list` as success. Do not read messages with SlackCLI even if it still "works" after Direct API `invalid_auth`.
 
-### parse-curl / terminal login
+### 403 on auth.test after a valid paste
 
-Do not send the user to `slackcli auth parse-curl --login`. Redirected stdin is ignored (`No cURL command provided`). Always paste-into-chat, then `login-from-curl.py`.
+Slack returns HTTP 403 when the request lacks the `dbd` cookie. Check in this order:
+
+1. `cat ~/.local/share/slackcli/INSTALLED_FROM` → if it is missing, or the source lacks the fix (see Install, Step 1), reinstall with Install Steps 2–3.
+2. The pasted cURL must contain a `dbd=` cookie. `login-from-curl.py` reports the result of the save step, not whether `dbd` was present. Ask the user for a fresh Copy as cURL if `dbd` is missing.
+3. `check-auth.py` sends `dbd` and the stored User-Agent. Re-run it after reinstalling.
+
+Do not send the user to `slackcli auth login-browser` or `parse-curl` in a terminal to fix this. Use the paste flow.
 
 ### Cookie Must Be URL-Encoded
 
-The `xoxd` token contains characters like `/`. Always `urllib.parse.quote(xoxd, safe='')` in the `Cookie` header. Skipping encoding yields `invalid_auth` with valid tokens.
+The `xoxd` token contains characters like `/`. Always `urllib.parse.quote(xoxd, safe='')` in the `Cookie` header. Skipping encoding yields `invalid_auth` with valid tokens. The `Cookie` header must also carry `dbd` when `dbd_cookie` is stored in `workspaces.json`, and the request should send the stored `user_agent`.
 
 ### SlackCLI Strips File Attachments
 
@@ -445,7 +542,7 @@ Suggest adding that to `~/.zshrc` or `~/.bashrc`.
 
 ### File Download Returns HTML
 
-Expired or incomplete auth. STOP procedure. Both `Authorization: Bearer <xoxc>` and `Cookie: d=<url-encoded-xoxd>` are required.
+Expired or incomplete auth. STOP procedure. Both `Authorization: Bearer <xoxc>` and `Cookie: d=<url-encoded-xoxd>; dbd=<dbd>` are required, plus the stored User-Agent.
 
 ### Network / Sandbox Errors
 

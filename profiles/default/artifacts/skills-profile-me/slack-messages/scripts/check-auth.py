@@ -55,11 +55,19 @@ def main():
         blocked("missing_workspace_url")
 
     encoded_xoxd = urllib.parse.quote(xoxd, safe="")
+    cookie = f"d={encoded_xoxd}"
+    # Slack returns 403 without the dbd cookie; send it when stored.
+    dbd = (ws.get("dbd_cookie") or "").strip()
+    if dbd:
+        cookie += f"; dbd={dbd}"
     url = f"{workspace_url}/api/auth.test"
     params = urllib.parse.urlencode({"token": xoxc}).encode()
     req = urllib.request.Request(url, data=params)
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
-    req.add_header("Cookie", f"d={encoded_xoxd};")
+    req.add_header("Cookie", cookie + ";")
+    ua = (ws.get("user_agent") or "").strip()
+    if ua:
+        req.add_header("User-Agent", ua)
 
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
