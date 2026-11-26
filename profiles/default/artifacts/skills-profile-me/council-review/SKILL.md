@@ -49,17 +49,17 @@ The review is done when every kept finding has been verified against the code at
 
 ## 4. Report in chat
 
-1. Print the score table using `<Model> (<Effort>)` (include prior round columns when reviewing a follow-up round), followed by `**Orchestrator call:**` summarizing the overall recommendation across the kept issues. When kept findings include pre-existing or optional items that do not all need to land in the same PR, leave the scope call to the author and offer 2–3 concrete options naming the issue numbers (for example, minimal scope, quick wins included, and complete fix).
+1. Print the score table using `<Model> (<Effort>)` (include prior round columns when reviewing a follow-up round), followed by `**Orchestrator call:**` summarizing the overall recommendation across the kept issues. When kept findings include pre-existing or optional items that do not all need to land in the same PR, leave the scope call to the author and offer 2–3 concrete options naming the findings by number (for example, `finding 1`, `findings 2–5`).
 2. List the kept issues (or `None` if nothing met the threshold). For each issue, use this layout:
    - Top metadata line (not bullets): `**Recommendation:** <call + brief reason> · **Found by:** <N> of 3 models · **Origin:** <origin> · **Fix size:** <size>`
    - Compact 3-row table listing all 3 delegates (use `—` when a delegate did not flag the issue, or when `In scope` is unclear or not applicable):
      `| Model | Found | Severity | Origin | In scope | Fix size | Notes |`
    - Three bullets: `**Where:**`, `**Impact:**`, and `**Suggested fix:**`.
 3. **GitHub comment draft:**
-   - **PR link or number provided:** draft a ready-to-paste GitHub comment in constructive teammate prose (full sentences, no semicolons). Never post the comment automatically.
+   - **PR link or number provided:** draft a ready-to-paste GitHub comment in constructive teammate prose (full sentences, no semicolons). Always refer to findings as `finding 1` / `findings 2–5` (never `#1` / `#2`, which GitHub autolinks to repository issues and PRs). Never post the comment automatically.
      - **At least one issue kept:**
        - Two-sentence intro naming all 3 models with effort and pointing to the per-issue counts below (for example, `"I used the council skill to review this PR with 3 independent AI models: <Model A> (<Effort>), <Model B> (<Effort>), and <Model C> (<Effort>). Each finding below shows how many models independently flagged it and includes a per-model breakdown."`).
-       - `**Overall recommendation:**` summarizing what to fix in the PR. When kept findings include pre-existing or optional items, note that not everything has to land in this PR and list 2–3 concrete scoping options naming the issue numbers (for example, `"Fix only #... if you want..."`, `"Fix #... if you want..."`, `"Fix all (#...) if you want..."`) so the author can decide scope.
+       - `**Overall recommendation:**` summarizing what to fix in the PR. When kept findings include pre-existing or optional items, note that not everything has to land in this PR and list 2–3 concrete scoping options naming the findings (for example, `"Fix only finding 1 if you want..."`, `"Fix findings 1 and 3–5 if you want..."`, `"Fix all findings (1–6) if you want..."`) so the author can decide scope.
        - Score table directly before issue 1 (`| Model | Round 1 |`, adding prior round columns such as `| Model | Round 1 | Round 2 |` on follow-up rounds).
        - For each issue: the top metadata line (`**Recommendation:** <call> · **Found by:** <N> of 3 models · **Origin:** <origin> · **Fix size:** <size>`), the three bullets (`**Where:**`, `**Impact:**`, `**Suggested fix:**`), and the 3-row per-model breakdown table (`| Model | Found | Severity | Origin | In scope | Fix size | Notes |`) directly below the bullets.
      - **No issues kept (clean pass):**
