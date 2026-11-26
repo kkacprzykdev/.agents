@@ -1,12 +1,12 @@
 ---
 name: council-review
 disable-model-invocation: true
-description: Run a read-only 3-model council code review on a pull request or local changes, reporting 3/3 findings and 2/3 must-fix issues, with a GitHub comment draft when a PR link or number is given. User-invoked only.
+description: Run a read-only 3-model council code review on a pull request or local changes, reporting verified findings with per-model breakdowns and fix recommendations, plus a GitHub comment draft when a PR link or number is given. User-invoked only.
 ---
 
 # Council review
 
-Run one read-only code review pass with three independent delegates using the `council` skill and the `council-members` rule. Keep council scores in chat only unless the user explicitly asks to edit a PR description.
+Run one read-only code review pass with three independent delegates using the `council` skill and the `council-members` rule. Keep council scores in chat only unless the user explicitly asks to edit a PR description. Always display each delegate with its effort as `<Model> (<Effort>)` (for example, `Claude Opus 5.5 (High)`).
 
 ## 1. Resolve the target
 
@@ -23,28 +23,43 @@ Follow `council` and `council-members` to resolve the three delegates and their 
 - **Shared severity rubric:**
   - **Must-fix:** correctness bug, behavior regression, security or data leak, crash/OOM/performance cliff, broken contract, or broken wiring/DI.
   - **Non-blocking:** minor edge case, style or clarity nit, or optional test coverage.
-- **Evidence:** cite exact `file:line` and a concrete failure scenario for every finding.
+- **Evidence:** cite exact `file:line`, origin (`regression`, `new bug`, or `pre-existing`), concrete failure scenario, and rough fix size for every finding.
 
 ## 3. Verify and filter findings
 
 Check every candidate finding directly against the code and drop any that do not hold. Keep:
 
-- Every verified issue raised by **all 3 delegates (3/3)**, regardless of severity label.
-- Every verified **must-fix** issue raised by **2 of 3 delegates (2/3 must-fix)**.
+- Every verified issue raised by **all 3 delegates**, regardless of severity label.
+- Every verified **must-fix** issue raised by **2 of 3 delegates** (at least one flagging delegate marked it must-fix and verification confirms it meets the must-fix rubric).
 
-Drop 1/3 findings and 2/3 non-blocking nits. For each kept issue, determine:
+Drop 1-of-3 findings and 2-of-3 non-blocking nits. For each kept issue, determine:
 
-- Consensus tag (`3/3` or `2/3 must-fix`)
-- Origin (**regression**, **new bug**, or **pre-existing**)
-- Concrete failure impact and rough fix size
+- **Recommendation** (orchestrator call; prefer fixing small, low-risk issues in the PR right away, even when non-blocking):
+  - `Fix in this PR` — verified must-fix issue of any size, or non-blocking issue with a small, low-risk fix (`XS`/`S`, directly scoped to the PR).
+  - `Fix or follow-up` — non-blocking issue with a medium fix (`M`) or a judgment call / product trade-off.
+  - `Skip / follow-up` — non-blocking issue with a large (`L`), risky, or out-of-scope fix.
+- **Found by:** `3 of 3 models` or `2 of 3 models`.
+- **Origin:** `regression`, `new bug`, or `pre-existing`.
+- **Fix size:** `XS`, `S`, `M`, or `L` with a rough line estimate.
+- **Where** (exact `file:line`), **Impact** (concrete failure scenario), **Suggested fix**, and the **per-model breakdown** for all 3 delegates.
+
+Keep `Must-fix` / `Non-blocking` severity labels inside the per-model breakdown table only; leave them out of the top metadata line and recommendation label so one delegate's severity label is not overstated as consensus.
 
 The review is done when every kept finding has been verified against the code at exact line numbers.
 
 ## 4. Report in chat
 
-1. Print the Round 1 score table using the delegate names from `council-members`.
-2. List the kept issues with consensus tag, origin, exact `file:line`, concrete impact, and rough fix size. If nothing met the threshold, state `None`.
+1. Print the Round 1 score table using `<Model> (<Effort>)`, followed by a one-line `**Orchestrator call:**` summarizing the overall recommendation across the kept issues.
+2. List the kept issues (or `None` if nothing met the threshold). For each issue, use this layout:
+   - Top metadata line (not bullets): `**Recommendation:** <call + brief reason> · **Found by:** <N> of 3 models · **Origin:** <origin> · **Fix size:** <size>`
+   - Compact 3-row table listing all 3 delegates (use `—` when a delegate did not flag the issue):
+     `| Model | Found | Severity | Origin | Fix size | Notes |`
+   - Three bullets: `**Where:**`, `**Impact:**`, and `**Suggested fix:**`.
 3. **GitHub comment draft:**
-   - **PR link or number provided and at least one issue kept:** draft a ready-to-paste GitHub comment framed as a 3-model council review that names the 3 models that ran (for example, `"I used the council skill to review this PR with 3 independent AI models (<Model A>, <Model B>, and <Model C>)..."`). State detection accurately: say that all 3 models independently flagged `3/3` issues rather than overclaiming unanimous must-fix agreement, distinguish `2/3` issues accurately when present, and omit per-model blocker breakdowns. List each issue with exact location, impact, and suggested fix in constructive teammate prose (full sentences, no semicolons). Never post the comment automatically.
+   - **PR link or number provided and at least one issue kept:** draft a ready-to-paste GitHub comment in constructive teammate prose (full sentences, no semicolons):
+     - Clear intro naming all 3 models with effort (for example, `"I used the council skill to review this PR with 3 independent AI models: <Model A> (<Effort>), <Model B> (<Effort>), and <Model C> (<Effort>). Each finding below shows how many models independently flagged it and includes a per-model breakdown."`). Keep the intro simple instead of listing issue numbers per model count.
+     - One-line `**Overall recommendation:**` summarizing what to fix in the PR.
+     - For each issue: the top metadata line (`**Recommendation:** <call> · **Found by:** <N> of 3 models · **Origin:** <origin> · **Fix size:** <size>`), the three bullets (`**Where:**`, `**Impact:**`, `**Suggested fix:**`), and the visible (non-accordion) 3-row per-model breakdown table (`| Model | Found | Severity | Origin | Fix size | Notes |`) below the bullets.
+     - Never post the comment automatically.
    - **PR link or number provided and no issues kept:** state that nothing met the threshold and skip the draft.
    - **No PR link or number provided (local review):** skip the comment draft.
