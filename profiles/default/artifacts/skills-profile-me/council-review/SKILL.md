@@ -6,7 +6,7 @@ description: Run a read-only 3-model council code review on a pull request or lo
 
 # Council review
 
-Run one read-only code review pass with three independent delegates using the `council` skill and the `council-members` rule. Keep council scores in chat only unless the user explicitly asks to edit a PR description. Always display each delegate with its effort as `<Model> (<Effort>)` (for example, `Claude Opus 5.5 (High)`).
+Run one read-only code review pass with three independent delegates using the `council` skill and the `council-members` rule. Keep council scores in chat only unless the user explicitly asks to edit a PR description. In the chat report and GitHub comment draft, always display each delegate with its effort as `<Model> (<Effort>)` (for example, `Claude Opus 5.5 (High)`).
 
 ## 1. Resolve the target
 
@@ -43,7 +43,7 @@ Drop 1-of-3 findings and 2-of-3 non-blocking nits. For each kept issue, determin
 - **Fix size:** `XS`, `S`, `M`, or `L` with a rough line estimate.
 - **Where** (exact `file:line`), **Impact** (concrete failure scenario), **Suggested fix**, and the **per-model breakdown** for all 3 delegates.
 
-Keep `Must-fix` / `Non-blocking` severity labels inside the per-model breakdown table only; leave them out of the top metadata line and recommendation label so one delegate's severity label is not overstated as consensus.
+Keep `Must-fix` / `Non-blocking` severity labels inside the per-model breakdown table only; leave them out of the overall summary, top metadata line, and recommendation reason so one delegate's severity label is not overstated as consensus.
 
 The review is done when every kept finding has been verified against the code at exact line numbers.
 
@@ -57,9 +57,9 @@ The review is done when every kept finding has been verified against the code at
    - Three bullets: `**Where:**`, `**Impact:**`, and `**Suggested fix:**`.
 3. **GitHub comment draft:**
    - **PR link or number provided and at least one issue kept:** draft a ready-to-paste GitHub comment in constructive teammate prose (full sentences, no semicolons):
-     - Clear intro naming all 3 models with effort (for example, `"I used the council skill to review this PR with 3 independent AI models: <Model A> (<Effort>), <Model B> (<Effort>), and <Model C> (<Effort>). Each finding below shows how many models independently flagged it and includes a per-model breakdown."`). Keep the intro simple instead of listing issue numbers per model count.
+     - Clear intro naming all 3 models with effort (for example, `"I used the council skill to review this PR with 3 independent AI models: <Model A> (<Effort>), <Model B> (<Effort>), and <Model C> (<Effort>). Each finding below shows how many models independently flagged it and includes a per-model breakdown."`). Keep the intro to two sentences naming the 3 models with effort and pointing to the per-issue counts below.
      - One-line `**Overall recommendation:**` summarizing what to fix in the PR.
-     - For each issue: the top metadata line (`**Recommendation:** <call> · **Found by:** <N> of 3 models · **Origin:** <origin> · **Fix size:** <size>`), the three bullets (`**Where:**`, `**Impact:**`, `**Suggested fix:**`), and the visible (non-accordion) 3-row per-model breakdown table (`| Model | Found | Severity | Origin | Fix size | Notes |`) below the bullets.
+     - For each issue: the top metadata line (`**Recommendation:** <call> · **Found by:** <N> of 3 models · **Origin:** <origin> · **Fix size:** <size>`), the three bullets (`**Where:**`, `**Impact:**`, `**Suggested fix:**`), and the 3-row per-model breakdown table (`| Model | Found | Severity | Origin | Fix size | Notes |`) directly below the bullets.
      - Never post the comment automatically.
    - **PR link or number provided and no issues kept:** state that nothing met the threshold and skip the draft.
    - **No PR link or number provided (local review):** skip the comment draft.
