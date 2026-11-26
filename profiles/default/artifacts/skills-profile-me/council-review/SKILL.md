@@ -6,7 +6,7 @@ description: Run a read-only 3-model council code review on a pull request or lo
 
 # Council review
 
-Run one read-only code review pass with three independent delegates using the `council` skill and the `council-members` rule. Keep council scores in chat only unless the user explicitly asks to edit a PR description. In the chat report and GitHub comment draft, always display each delegate with its effort as `<Model> (<Effort>)` (for example, `Claude Opus 5.5 (High)`).
+Run one read-only code review pass with three independent delegates using the `council` skill and the `council-members` rule. Leave PR descriptions untouched unless the user explicitly asks to edit one. In the chat report and GitHub comment draft, always display each delegate with its effort as `<Model> (<Effort>)` (for example, `Claude Opus 5.5 (High)`).
 
 ## 1. Resolve the target
 
@@ -49,17 +49,21 @@ The review is done when every kept finding has been verified against the code at
 
 ## 4. Report in chat
 
-1. Print the Round 1 score table using `<Model> (<Effort>)`, followed by a one-line `**Orchestrator call:**` summarizing the overall recommendation across the kept issues.
+1. Print the score table using `<Model> (<Effort>)` (include prior round columns when reviewing a follow-up round), followed by a one-line `**Orchestrator call:**` summarizing the overall recommendation across the kept issues.
 2. List the kept issues (or `None` if nothing met the threshold). For each issue, use this layout:
    - Top metadata line (not bullets): `**Recommendation:** <call + brief reason> · **Found by:** <N> of 3 models · **Origin:** <origin> · **Fix size:** <size>`
    - Compact 3-row table listing all 3 delegates (use `—` when a delegate did not flag the issue):
      `| Model | Found | Severity | Origin | Fix size | Notes |`
    - Three bullets: `**Where:**`, `**Impact:**`, and `**Suggested fix:**`.
 3. **GitHub comment draft:**
-   - **PR link or number provided and at least one issue kept:** draft a ready-to-paste GitHub comment in constructive teammate prose (full sentences, no semicolons):
-     - Clear intro naming all 3 models with effort (for example, `"I used the council skill to review this PR with 3 independent AI models: <Model A> (<Effort>), <Model B> (<Effort>), and <Model C> (<Effort>). Each finding below shows how many models independently flagged it and includes a per-model breakdown."`). Keep the intro to two sentences naming the 3 models with effort and pointing to the per-issue counts below.
-     - One-line `**Overall recommendation:**` summarizing what to fix in the PR.
-     - For each issue: the top metadata line (`**Recommendation:** <call> · **Found by:** <N> of 3 models · **Origin:** <origin> · **Fix size:** <size>`), the three bullets (`**Where:**`, `**Impact:**`, `**Suggested fix:**`), and the 3-row per-model breakdown table (`| Model | Found | Severity | Origin | Fix size | Notes |`) directly below the bullets.
-     - Never post the comment automatically.
-   - **PR link or number provided and no issues kept:** state that nothing met the threshold and skip the draft.
+   - **PR link or number provided:** draft a ready-to-paste GitHub comment in constructive teammate prose (full sentences, no semicolons). Never post the comment automatically.
+     - **At least one issue kept:**
+       - Two-sentence intro naming all 3 models with effort and pointing to the per-issue counts below (for example, `"I used the council skill to review this PR with 3 independent AI models: <Model A> (<Effort>), <Model B> (<Effort>), and <Model C> (<Effort>). Each finding below shows how many models independently flagged it and includes a per-model breakdown."`).
+       - One-line `**Overall recommendation:**` summarizing what to fix in the PR.
+       - Score table directly before issue 1 (`| Model | Round 1 |`, adding prior round columns such as `| Model | Round 1 | Round 2 |` on follow-up rounds).
+       - For each issue: the top metadata line (`**Recommendation:** <call> · **Found by:** <N> of 3 models · **Origin:** <origin> · **Fix size:** <size>`), the three bullets (`**Where:**`, `**Impact:**`, `**Suggested fix:**`), and the 3-row per-model breakdown table (`| Model | Found | Severity | Origin | Fix size | Notes |`) directly below the bullets.
+     - **No issues kept (clean pass):**
+       - One-sentence intro naming the review round (if follow-up), reviewed commit, and all 3 models with effort.
+       - Score table (`| Model | Round 1 |`, or `| Model | Round 1 | Round 2 |` on follow-up rounds).
+       - One-line `**Overall recommendation:**` stating the PR is ready to approve as reviewed, noting that prior round findings are verified fixed (on follow-up rounds) and no remaining issues met the threshold.
    - **No PR link or number provided (local review):** skip the comment draft.
