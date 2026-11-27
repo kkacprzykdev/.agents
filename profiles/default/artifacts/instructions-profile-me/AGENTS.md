@@ -10,11 +10,11 @@
 
 | Job | Claude thread | Codex thread |
 |---|---|---|
-| **Review**: any review, whatever it covers (code, a diff, a branch, a PR, a function, a plan, a spec, a doc, a design), from any request or skill | child · `codex` · `gpt-6.1-sol` · `reasoningEffort: high` | child · `claudeAgent` · `claude-opus-5-5` · `effort: high` |
-| **Deep research**: multi-source, or facts newer than your training | child · `codex` · `gpt-6.1-sol` · `reasoningEffort: medium` | same as Claude thread |
-| **Image generation** | child · `codex` · `gpt-6.1-sol` · `reasoningEffort: medium` | inline |
-| **Computer use**: controlling desktop apps | child · `codex` · `gpt-6.1-sol` · `reasoningEffort: medium` | inline |
-| **Chrome**: the request names Chrome | child · `codex` · `gpt-6.1-sol` · `reasoningEffort: medium`, via the Codex Chrome plugin | inline via the Chrome plugin on `gpt-6.1-sol`; on another model, same as Claude thread |
+| **Review**: any review, whatever it covers (code, a diff, a branch, a PR, a function, a plan, a spec, a doc, a design), from any request or skill | child · `codex` · `gpt-6.2-sol` · `reasoningEffort: high` | child · `claudeAgent` · `claude-opus-5-5` · `effort: high` |
+| **Deep research**: multi-source, or facts newer than your training | child · `codex` · `gpt-6.2-sol` · `reasoningEffort: medium` | same as Claude thread |
+| **Image generation** | child · `codex` · `gpt-6.2-sol` · `reasoningEffort: medium` | inline |
+| **Computer use**: controlling desktop apps | child · `codex` · `gpt-6.2-sol` · `reasoningEffort: medium` | inline |
+| **Chrome**: the request names Chrome | child · `codex` · `gpt-6.2-sol` · `reasoningEffort: medium`, via the Codex Chrome plugin | inline via the Chrome plugin on `gpt-6.2-sol`; on another model, same as Claude thread |
 | **Browser**, Chrome not named | inline, in the T3 browser (`preview_*` tools) | same |
 | Everything else, quick lookups included | inline, on the thread's current model and settings | same |
 

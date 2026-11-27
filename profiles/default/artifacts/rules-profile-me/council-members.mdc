@@ -16,7 +16,7 @@ You are in T3 Code when T3's `orchestrator_capabilities` tool is available (any 
 | Delegate | Model | Effort |
 |---|---|---|
 | Claude Opus 5.5 | Claude Opus 5.5 | High |
-| GPT 6.1 Sol | GPT 6.1 Sol | High |
+| GPT 6.2 Sol | GPT 6.2 Sol | High |
 | GPT-6.2 Astra | GPT-6.2 Astra | High |
 
 ### Default
