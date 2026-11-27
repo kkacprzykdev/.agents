@@ -86,7 +86,7 @@ def slackcli_bin():
     return home if os.path.isfile(home) else None
 
 
-def login(text, xoxc, xoxd):
+def login(text, xoxc, xoxd, workspace_url):
     # parse-curl (not login-browser) so the dbd cookie is saved too; Slack
     # rejects auth.test with HTTP 403 when dbd is missing.
     bin_path = slackcli_bin()
@@ -144,7 +144,7 @@ def main(argv):
     if "--dry-run" in argv:
         print(f"EXTRACT_OK workspace_url={workspace_url}")
         return
-    login(text, xoxc, xoxd)
+    login(text, xoxc, xoxd, workspace_url)
 
 
 if __name__ == "__main__":
