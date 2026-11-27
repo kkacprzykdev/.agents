@@ -1,11 +1,11 @@
 ---
-description: Fixed council members for the council skill, with one set for T3 Code and one for every other coding agent
+description: Fixed council members for the council, council-review, and council-review-and-fix skills, with one set for T3 Code and one for every other coding agent
 alwaysApply: true
 ---
 
 # Council members
 
-Whenever you run the `council` skill, its three delegates are always the ones listed for your coding agent, each at the effort shown.
+Whenever you run the `council`, `council-review`, or `council-review-and-fix` skill, its three delegates are always the ones listed for your coding agent, each at the effort shown.
 
 ## Which set applies
 
@@ -29,7 +29,7 @@ You are in T3 Code when T3's `orchestrator_capabilities` tool is available (any 
 
 ## Precedence
 
-- These are the council members the skill's "If the user's instructions name council members, use those" refers to. Do not pick the latest flagship model from each provider instead.
+- These are the council members the `council` skill's "If the user's instructions name council members, use those" refers to. Do not pick the latest flagship model from each provider instead.
 - In T3 Code, the T3 Code set replaces the target that the model routing table gives for review. Every delegate still runs as a child, and the routing table's Brief rules still apply.
 - A model or effort the user names in the request wins over these tables, for that run only.
 
