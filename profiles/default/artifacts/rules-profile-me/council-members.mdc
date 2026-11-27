@@ -15,15 +15,15 @@ You are in T3 Code when T3's `orchestrator_capabilities` tool is available (any 
 
 | Delegate | Model | Effort |
 |---|---|---|
-| Claude Opus 5.5 | Claude Opus 5.5 | High |
+| Claude Opus 5.5 | Claude Opus 5.5 | Medium |
 | GPT 6.2 Sol | GPT 6.2 Sol | High |
-| GPT-6.2 Astra | GPT-6.2 Astra | High |
+| GPT-6.2 Astra | GPT-6.2 Astra | Medium |
 
 ### Default
 
 | Delegate | Model | Effort |
 |---|---|---|
-| Claude Opus 5.5 | Claude Opus 5.5 | High |
+| Claude Opus 5.5 | Claude Opus 5.5 | Medium |
 | Gemini 4 Neon | Gemini 4 Neon | Medium |
 | Claude Fable 5.2 | Claude Fable 5.2 | Medium |
 
